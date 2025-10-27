@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Camera } from 'lucide-react';
@@ -20,6 +20,10 @@ type AttendanceRecord = {
     date: string;
     subject: string;
     status: 'Present' | 'Absent';
+    createdAt: {
+        seconds: number;
+        nanoseconds: number;
+    }
 };
 
 type Subject = {
@@ -257,8 +261,18 @@ const StudentAttendance = () => {
     const { app } = useFirebase();
     const db = getFirestore(app);
     
-    const attendanceQuery = user ? query(collection(db, 'attendance'), where('studentId', '==', user.uid), orderBy('createdAt', 'desc')) : null;
+    const attendanceQuery = user ? query(collection(db, 'attendance'), where('studentId', '==', user.uid)) : null;
     const { data: attendanceRecords, loading } = useCollection<AttendanceRecord>(attendanceQuery);
+    
+    const sortedRecords = useMemo(() => {
+        if (!attendanceRecords) return [];
+        return [...attendanceRecords].sort((a, b) => {
+            const dateA = a.createdAt?.seconds || 0;
+            const dateB = b.createdAt?.seconds || 0;
+            return dateB - dateA;
+        });
+    }, [attendanceRecords]);
+
 
     return (
         <div className="grid md:grid-cols-2 gap-6">
@@ -294,7 +308,7 @@ const StudentAttendance = () => {
                         </TableHeader>
                         <TableBody>
                             {loading && <TableRow><TableCell colSpan={3} className="text-center">Loading...</TableCell></TableRow>}
-                            {attendanceRecords && attendanceRecords.map((record) => (
+                            {sortedRecords && sortedRecords.map((record) => (
                                 <TableRow key={record.id}>
                                     <TableCell className="font-medium">{record.date}</TableCell>
                                     <TableCell>{record.subject}</TableCell>
@@ -305,7 +319,7 @@ const StudentAttendance = () => {
                                     </TableCell>
                                 </TableRow>
                             ))}
-                            {!loading && attendanceRecords?.length === 0 && (
+                            {!loading && sortedRecords?.length === 0 && (
                                 <TableRow>
                                     <TableCell colSpan={3} className="text-center text-muted-foreground">No attendance records found.</TableCell>
                                 </TableRow>
@@ -329,5 +343,3 @@ export default function AttendancePage() {
         </div>
     );
 }
-
-    
