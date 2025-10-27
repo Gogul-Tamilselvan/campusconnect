@@ -133,34 +133,38 @@ const TeacherAttendance = () => {
     }, [db, presentStudents, toast]);
 
     useEffect(() => {
-        const getCameraPermission = async () => {
-          if (!isScanning) return;
+        if (!isScanning) return;
     
-          try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            setHasCameraPermission(true);
-            if (videoRef.current) {
-              videoRef.current.srcObject = stream;
+        let stream: MediaStream;
+        const getCameraPermission = async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                setHasCameraPermission(true);
+    
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                    videoRef.current.play().catch(e => console.error("Video play failed:", e));
+                }
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                setHasCameraPermission(false);
+                toast({
+                    variant: 'destructive',
+                    title: 'Camera Access Denied',
+                    description: 'Please enable camera permissions in your browser settings to use this app.',
+                });
             }
-          } catch (error) {
-            console.error('Error accessing camera:', error);
-            setHasCameraPermission(false);
-            toast({
-              variant: 'destructive',
-              title: 'Camera Access Denied',
-              description: 'Please enable camera permissions in your browser settings to use this app.',
-            });
-          }
         };
     
         getCameraPermission();
     
         return () => {
-          if (videoRef.current && videoRef.current.srcObject) {
-            const stream = videoRef.current.srcObject as MediaStream;
-            stream.getTracks().forEach((track) => track.stop());
-            videoRef.current.srcObject = null;
-          }
+            if (stream) {
+                stream.getTracks().forEach((track) => track.stop());
+            }
+            if (videoRef.current) {
+                videoRef.current.srcObject = null;
+            }
         };
     }, [isScanning, toast]);
 
@@ -173,55 +177,43 @@ const TeacherAttendance = () => {
             }
             return;
         }
-    
+
         const scanQrCode = () => {
-            if (!isScanning || !video || video.readyState !== video.HAVE_ENOUGH_DATA) {
-                animationFrameId.current = requestAnimationFrame(scanQrCode);
-                return;
-            }
-    
-            const canvas = canvasRef.current;
-            if (canvas) {
-                const context = canvas.getContext('2d', { willReadFrequently: true });
-                if (context) {
-                    canvas.height = video.videoHeight;
-                    canvas.width = video.videoWidth;
-                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-                    try {
-                        const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                            inversionAttempts: 'dontInvert',
-                        });
-                        if (code && selectedSubject) {
-                            markAttendance(code.data, selectedSubject);
-                            // Brief pause to prevent multiple scans of the same code
-                            setTimeout(() => {
-                                animationFrameId.current = requestAnimationFrame(scanQrCode);
-                            }, 2000);
-                            return;
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                const canvas = canvasRef.current;
+                if (canvas) {
+                    const context = canvas.getContext('2d', { willReadFrequently: true });
+                    if (context) {
+                        canvas.height = video.videoHeight;
+                        canvas.width = video.videoWidth;
+                        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                        try {
+                            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                                inversionAttempts: 'dontInvert',
+                            });
+                            if (code && selectedSubject) {
+                                // Stop scanning to prevent multiple triggers
+                                setIsScanning(false); 
+                                markAttendance(code.data, selectedSubject);
+                                // Restart scanning after a delay
+                                setTimeout(() => setIsScanning(true), 2000); 
+                                return;
+                            }
+                        } catch (err) {
+                           //silently fail
                         }
-                    } catch (err) {
-                        // Errors from jsQR can happen if no QR is in frame
                     }
                 }
             }
             animationFrameId.current = requestAnimationFrame(scanQrCode);
         };
     
-        const handleCanPlay = () => {
-            if(animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
-            animationFrameId.current = requestAnimationFrame(scanQrCode);
-        }
-    
-        video.addEventListener('canplay', handleCanPlay);
-        if (video.readyState >= video.HAVE_ENOUGH_DATA) {
-             handleCanPlay();
-        }
+       if (video.srcObject) {
+         animationFrameId.current = requestAnimationFrame(scanQrCode);
+       }
     
         return () => {
-            if (video) {
-                video.removeEventListener('canplay', handleCanPlay);
-            }
             if (animationFrameId.current) {
                 cancelAnimationFrame(animationFrameId.current);
             }
@@ -375,9 +367,9 @@ const StudentAttendance = () => {
             const dateA = new Date(a.date).getTime();
             const dateB = new Date(b.date).getTime();
             if (dateB !== dateA) return dateB - dateA;
-            if (b.createdAt && a.createdAt) {
-              return b.createdAt.seconds - a.createdAt.seconds;
-            }
+             if (b.createdAt && a.createdAt) {
+               return b.createdAt.seconds - a.createdAt.seconds;
+             }
             return 0;
           });
     }, [attendanceRecords]);
@@ -509,25 +501,27 @@ const AdminAttendance = () => {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {(attendanceLoading || usersLoading) && (
+                        {(attendanceLoading || usersLoading) ? (
                             <TableRow><TableCell colSpan={4} className="text-center">Loading records...</TableCell></TableRow>
-                        )}
-                        {filteredRecords && filteredRecords.map((record) => (
-                            <TableRow key={record.id}>
-                                <TableCell className="font-medium">{record.studentName}</TableCell>
-                                <TableCell>{record.subject}</TableCell>
-                                <TableCell>{new Date(record.date).toLocaleDateString()}</TableCell>
-                                <TableCell className="text-right">
-                                    <Badge variant={record.status === 'Present' ? 'default' : 'destructive'} className={record.status === 'Present' ? 'bg-green-500' : ''}>
-                                        {record.status}
-                                    </Badge>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                        {!attendanceLoading && !usersLoading && filteredRecords?.length === 0 && (
-                             <TableRow>
-                                <TableCell colSpan={4} className="text-center text-muted-foreground">No records match your filters.</TableCell>
-                            </TableRow>
+                        ) : (
+                            <>
+                            {filteredRecords.length > 0 ? filteredRecords.map((record) => (
+                                <TableRow key={record.id}>
+                                    <TableCell className="font-medium">{record.studentName}</TableCell>
+                                    <TableCell>{record.subject}</TableCell>
+                                    <TableCell>{new Date(record.date).toLocaleDateString()}</TableCell>
+                                    <TableCell className="text-right">
+                                        <Badge variant={record.status === 'Present' ? 'default' : 'destructive'} className={record.status === 'Present' ? 'bg-green-500' : ''}>
+                                            {record.status}
+                                        </Badge>
+                                    </TableCell>
+                                </TableRow>
+                            )) : (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="text-center text-muted-foreground">No records match your filters.</TableCell>
+                                </TableRow>
+                            )}
+                           </>
                         )}
                     </TableBody>
                 </Table>
