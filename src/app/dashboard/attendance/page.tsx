@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Camera } from 'lucide-react';
@@ -67,7 +67,7 @@ const TeacherAttendance = () => {
         return subjects?.find(s => s.id === selectedSubjectId);
     }, [subjects, selectedSubjectId]);
 
-    const markAttendance = async (studentId: string, subject: Subject) => {
+    const markAttendance = useCallback(async (studentId: string, subject: Subject) => {
         if (!studentId || !subject) return;
 
         const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
@@ -128,7 +128,7 @@ const TeacherAttendance = () => {
                 variant: "destructive",
             });
         }
-    };
+    }, [db, presentStudents, toast]);
 
 
     useEffect(() => {
@@ -205,7 +205,7 @@ const TeacherAttendance = () => {
                 }
             }
         };
-    }, [isScanning, toast, selectedSubject]);
+    }, [isScanning, toast, selectedSubject, markAttendance]);
 
     const handleMarkAbsentees = async () => {
         if (!selectedSubject) {
@@ -344,13 +344,8 @@ const StudentAttendance = () => {
     const { app } = useFirebase();
     const db = getFirestore(app);
     
-    const attendanceQuery = user ? query(collection(db, 'attendance'), where('studentId', '==', user.uid)) : null;
+    const attendanceQuery = user ? query(collection(db, 'attendance'), where('studentId', '==', user.uid), orderBy('createdAt', 'desc')) : null;
     const { data: attendanceRecords, loading } = useCollection<AttendanceRecord>(attendanceQuery);
-
-    const sortedRecords = useMemo(() => {
-        if (!attendanceRecords) return [];
-        return [...attendanceRecords].sort((a, b) => b.createdAt.seconds - a.createdAt.seconds);
-    }, [attendanceRecords]);
 
     return (
         <div className="grid md:grid-cols-2 gap-6">
@@ -386,7 +381,7 @@ const StudentAttendance = () => {
                         </TableHeader>
                         <TableBody>
                             {loading && <TableRow><TableCell colSpan={3} className="text-center">Loading...</TableCell></TableRow>}
-                            {sortedRecords && sortedRecords.map((record) => (
+                            {attendanceRecords && attendanceRecords.map((record) => (
                                 <TableRow key={record.id}>
                                     <TableCell className="font-medium">{record.date}</TableCell>
                                     <TableCell>{record.subject}</TableCell>
@@ -397,7 +392,7 @@ const StudentAttendance = () => {
                                     </TableCell>
                                 </TableRow>
                             ))}
-                            {!loading && sortedRecords?.length === 0 && (
+                            {!loading && attendanceRecords?.length === 0 && (
                                 <TableRow>
                                     <TableCell colSpan={3} className="text-center text-muted-foreground">No attendance records found.</TableCell>
                                 </TableRow>
