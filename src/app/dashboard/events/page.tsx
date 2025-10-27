@@ -1,6 +1,7 @@
 'use client';
 
-import { useFormState, useFormStatus } from 'react-dom';
+import { useActionState, useEffect, useRef, useState } from 'react';
+import { useFormStatus } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,7 +9,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { FormState, getEventSuggestions } from './actions';
-import { useEffect, useRef, useState } from 'react';
 import { Wand2, PlusCircle, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase } from '@/firebase';
@@ -36,7 +36,7 @@ function SubmitButton() {
 
 export default function EventsPage() {
   const initialState: FormState = null;
-  const [formState, formAction] = useFormState(getEventSuggestions, initialState);
+  const [formState, formAction] = useActionState(getEventSuggestions, initialState);
   const { toast } = useToast();
   const formRef = useRef<HTMLFormElement>(null);
   const { app } = useFirebase();
