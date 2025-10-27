@@ -166,7 +166,7 @@ const TeacherAttendance = () => {
                animationFrameId = requestAnimationFrame(scanQrCode);
             }
         };
-    
+
         const startScan = async () => {
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
@@ -174,11 +174,10 @@ const TeacherAttendance = () => {
     
                 if (videoRef.current) {
                     videoRef.current.srcObject = stream;
+                    // Wait for the stream to load and start playing before scanning
                     videoRef.current.onloadedmetadata = () => {
                         videoRef.current?.play().catch(e => console.error("Video play error:", e));
-                        if (isScanning) {
-                           animationFrameId = requestAnimationFrame(scanQrCode);
-                        }
+                        animationFrameId = requestAnimationFrame(scanQrCode);
                     };
                 }
             } catch (error) {
@@ -192,7 +191,7 @@ const TeacherAttendance = () => {
                 setIsScanning(false);
             }
         };
-
+    
         const stopScan = () => {
             cancelAnimationFrame(animationFrameId);
             if (stream) {
