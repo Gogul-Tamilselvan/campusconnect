@@ -1,4 +1,5 @@
 import { PlaceHolderImages } from "./placeholder-images";
+import { User } from "./types";
 
 export type PollOption = {
   id: number;
@@ -50,7 +51,7 @@ export type Event = {
 };
 
 
-export const MOCK_USERS = [
+export const MOCK_USERS: Omit<User, 'uid' | 'email'>[] = [
   {
     username: 'student',
     password: 'password',

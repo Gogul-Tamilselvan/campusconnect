@@ -13,18 +13,37 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 
 export default function SignupPage() {
-  const { login } = useAuth();
+  const { signup } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
-  const handleSignup = () => {
-    // In a real app, this would be a registration API call.
-    // For this mock app, we'll show a success message and redirect.
-    toast({
-        title: 'Signup Successful',
-        description: "You can now log in with the default credentials.",
-    });
-    router.push('/login');
+
+  const handleSignup = async () => {
+    if(!username || !email || !password) {
+      toast({
+        title: 'Missing Information',
+        description: 'Please fill in all fields.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    try {
+      await signup(email, password, username, 'Student');
+      toast({
+          title: 'Signup Successful',
+          description: "You can now log in with your credentials.",
+      });
+      router.push('/login');
+    } catch(error: any) {
+       toast({
+        title: 'Signup Failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -43,21 +62,21 @@ export default function SignupPage() {
                 <Label htmlFor="username">Username</Label>
                 <div className="relative">
                     <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="username" placeholder="Choose a username" className="pl-9" />
+                    <Input id="username" placeholder="Choose a username" className="pl-9" value={username} onChange={e => setUsername(e.target.value)} />
                 </div>
             </div>
             <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="email" type="email" placeholder="Enter your email" className="pl-9" />
+                    <Input id="email" type="email" placeholder="Enter your email" className="pl-9" value={email} onChange={e => setEmail(e.target.value)} />
                 </div>
             </div>
             <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <div className="relative">
                     <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="password" type="password" placeholder="Create a password" className="pl-9" />
+                    <Input id="password" type="password" placeholder="Create a password" className="pl-9" value={password} onChange={e => setPassword(e.target.value)} />
                 </div>
             </div>
             <Button onClick={handleSignup} className="w-full">

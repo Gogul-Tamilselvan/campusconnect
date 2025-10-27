@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { GraduationCap, KeyRound, User as UserIcon } from 'lucide-react';
+import { GraduationCap, KeyRound, Mail } from 'lucide-react';
 import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
@@ -13,15 +13,15 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage() {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const { login } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     try {
-      login(username, password);
+      await login(email, password);
       router.push('/dashboard');
     } catch (error: any) {
       toast({
@@ -45,10 +45,10 @@ export default function LoginPage() {
         <CardContent>
           <div className="space-y-4">
             <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
+                <Label htmlFor="email">Email</Label>
                 <div className="relative">
-                    <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="username" placeholder="e.g. student" className="pl-9" value={username} onChange={(e) => setUsername(e.target.value)} />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input id="email" type="email" placeholder="e.g. student@example.com" className="pl-9" value={email} onChange={(e) => setEmail(e.target.value)} />
                 </div>
             </div>
             <div className="space-y-2">
@@ -58,7 +58,7 @@ export default function LoginPage() {
                     <Input id="password" type="password" placeholder="e.g. password" className="pl-9" value={password} onChange={(e) => setPassword(e.target.value)} />
                 </div>
             </div>
-            <Button onClick={handleLogin} className="w-full" disabled={!username || !password}>
+            <Button onClick={handleLogin} className="w-full" disabled={!email || !password}>
               Sign In
             </Button>
              <div className="mt-4 text-center text-sm">
