@@ -10,7 +10,7 @@ import { Camera } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useFirebase } from '@/firebase';
-import { getFirestore, collection, query, where, orderBy, addDoc, serverTimestamp, getDocs, doc } from 'firebase/firestore';
+import { getFirestore, collection, query, where, orderBy, addDoc, serverTimestamp, getDocs, doc, getDoc } from 'firebase/firestore';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import QRCode from "react-qr-code";
 import jsQR from "jsqr";
@@ -71,14 +71,12 @@ const TeacherAttendance = () => {
 
         try {
              // Fetch student details
-            const usersRef = collection(db, "users");
-            const q = query(usersRef, where("uid", "==", studentId));
-            const querySnapshot = await getDocs(q);
+            const userDocRef = doc(db, "users", studentId);
+            const userDoc = await getDoc(userDocRef);
 
             let studentName = 'Unknown Student';
-            if (!querySnapshot.empty) {
-                const studentDoc = querySnapshot.docs[0];
-                studentName = studentDoc.data().name;
+            if (userDoc.exists()) {
+                studentName = userDoc.data().name;
             } else {
                  toast({ title: "Error", description: "Student not found in the system.", variant: "destructive" });
                  return;
@@ -343,3 +341,5 @@ export default function AttendancePage() {
         </div>
     );
 }
+
+    
