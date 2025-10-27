@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirebase } from '@/firebase';
 import { getFirestore, collection, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { useCollection } from '@/firebase/firestore/use-collection';
+import { useAuth } from '@/hooks/use-auth';
 
 type Event = {
   id: string;
@@ -41,6 +42,7 @@ export default function EventsPage() {
   const formRef = useRef<HTMLFormElement>(null);
   const { app } = useFirebase();
   const db = getFirestore(app);
+  const { user } = useAuth();
 
   const eventsQuery = query(collection(db, 'events'), orderBy('createdAt', 'desc'));
   const { data: events, loading } = useCollection<Event>(eventsQuery);
@@ -49,6 +51,8 @@ export default function EventsPage() {
   const [eventDate, setEventDate] = useState('');
   const [suggestedDescription, setSuggestedDescription] = useState('');
   const [suggestedCategory, setSuggestedCategory] = useState('');
+
+  const canCreateEvent = user?.role === 'Admin' || user?.role === 'Teacher';
 
   useEffect(() => {
     if(formState?.message && formState.suggestions) {
@@ -117,81 +121,83 @@ export default function EventsPage() {
   }
 
   return (
-    <div className="grid gap-8 lg:grid-cols-3">
-      <div className="lg:col-span-1 space-y-6">
-        <Card>
-          <form ref={formRef} action={formAction}>
-            <CardHeader>
-              <CardTitle>Create New Event</CardTitle>
-              <CardDescription>Add a new event and get AI-powered suggestions.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="eventName">Event Name</Label>
-                <Input
-                  id="eventName"
-                  name="eventName"
-                  placeholder="e.g., Annual Tech Fest"
-                  value={eventName}
-                  onChange={(e) => setEventName(e.target.value)}
-                  required
-                />
-                 {formState?.issues && <p className="text-sm text-destructive">{formState.issues[0]}</p>}
-              </div>
-               <div className="space-y-2">
-                <Label htmlFor="eventDate">Event Date</Label>
-                <Input
-                  id="eventDate"
-                  name="eventDate"
-                  type="date"
-                  value={eventDate}
-                  onChange={(e) => setEventDate(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="eventDetails">Event Details (Optional)</Label>
-                <Textarea
-                  id="eventDetails"
-                  name="eventDetails"
-                  placeholder="Provide any extra details, like speakers, topics, or goals."
-                  defaultValue={formState?.fields?.eventDetails}
-                />
-              </div>
+    <div className={`grid gap-8 ${canCreateEvent ? 'lg:grid-cols-3' : 'lg:grid-cols-1'}`}>
+      {canCreateEvent && (
+        <div className="lg:col-span-1 space-y-6">
+          <Card>
+            <form ref={formRef} action={formAction}>
+              <CardHeader>
+                <CardTitle>Create New Event</CardTitle>
+                <CardDescription>Add a new event and get AI-powered suggestions.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="eventName">Event Name</Label>
+                  <Input
+                    id="eventName"
+                    name="eventName"
+                    placeholder="e.g., Annual Tech Fest"
+                    value={eventName}
+                    onChange={(e) => setEventName(e.target.value)}
+                    required
+                  />
+                  {formState?.issues && <p className="text-sm text-destructive">{formState.issues[0]}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="eventDate">Event Date</Label>
+                  <Input
+                    id="eventDate"
+                    name="eventDate"
+                    type="date"
+                    value={eventDate}
+                    onChange={(e) => setEventDate(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="eventDetails">Event Details (Optional)</Label>
+                  <Textarea
+                    id="eventDetails"
+                    name="eventDetails"
+                    placeholder="Provide any extra details, like speakers, topics, or goals."
+                    defaultValue={formState?.fields?.eventDetails}
+                  />
+                </div>
 
-              {formState?.suggestions && (
-                <div className="space-y-4 rounded-lg bg-muted/50 p-4">
-                  <div>
-                    <Label>Suggested Categories</Label>
-                    <div className="flex flex-wrap gap-2 pt-2">
-                      {formState.suggestions.categories.map((cat, i) => (
-                        <Badge key={i} variant={suggestedCategory === cat ? 'default' : 'secondary'} onClick={() => setSuggestedCategory(cat)} className="cursor-pointer">{cat}</Badge>
-                      ))}
+                {formState?.suggestions && (
+                  <div className="space-y-4 rounded-lg bg-muted/50 p-4">
+                    <div>
+                      <Label>Suggested Categories</Label>
+                      <div className="flex flex-wrap gap-2 pt-2">
+                        {formState.suggestions.categories.map((cat, i) => (
+                          <Badge key={i} variant={suggestedCategory === cat ? 'default' : 'secondary'} onClick={() => setSuggestedCategory(cat)} className="cursor-pointer">{cat}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="suggestedDescription">Suggested Description</Label>
+                      <Textarea
+                        id="suggestedDescription"
+                        value={suggestedDescription}
+                        onChange={(e) => setSuggestedDescription(e.target.value)}
+                        className="mt-2 bg-background"
+                        rows={4}
+                      />
                     </div>
                   </div>
-                   <div>
-                    <Label htmlFor="suggestedDescription">Suggested Description</Label>
-                    <Textarea
-                      id="suggestedDescription"
-                      value={suggestedDescription}
-                      onChange={(e) => setSuggestedDescription(e.target.value)}
-                      className="mt-2 bg-background"
-                      rows={4}
-                    />
-                  </div>
-                </div>
-              )}
-            </CardContent>
-            <CardFooter className="flex justify-between">
-              <SubmitButton />
-              <Button variant="default" type="button" onClick={handleAddEvent}>
-                <PlusCircle className="mr-2 h-4 w-4" /> Add Event
-              </Button>
-            </CardFooter>
-          </form>
-        </Card>
-      </div>
-      <div className="lg:col-span-2">
+                )}
+              </CardContent>
+              <CardFooter className="flex justify-between">
+                <SubmitButton />
+                <Button variant="default" type="button" onClick={handleAddEvent}>
+                  <PlusCircle className="mr-2 h-4 w-4" /> Add Event
+                </Button>
+              </CardFooter>
+            </form>
+          </Card>
+        </div>
+      )}
+      <div className={canCreateEvent ? "lg:col-span-2" : "lg:col-span-1"}>
         <Card>
             <CardHeader>
                 <CardTitle>Upcoming Events</CardTitle>
