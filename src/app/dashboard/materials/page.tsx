@@ -3,20 +3,35 @@ import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download, File, PlusCircle, Upload, X } from 'lucide-react';
-import { studyMaterials as mockStudyMaterials, type StudyMaterial } from '@/lib/mock-data';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
+import { useFirebase } from '@/firebase';
+import { getStorage, ref, uploadBytes } from "firebase/storage";
+import { getFirestore, collection, addDoc, serverTimestamp, query, where } from 'firebase/firestore';
+import { useCollection } from '@/firebase/firestore/use-collection';
 
-type MaterialsBySubject = { [subject: string]: StudyMaterial[] };
+type StudyMaterial = {
+  id: string;
+  title: string;
+  type: string;
+  size: string;
+  subject: string;
+  url: string;
+  createdAt: any;
+};
 
-const UploadMaterialForm = ({ onUpload }: { onUpload: (subject: string, file: File) => void }) => {
+const UploadMaterialForm = () => {
     const [file, setFile] = useState<File | null>(null);
     const [subject, setSubject] = useState('');
     const inputRef = useRef<HTMLInputElement>(null);
     const { toast } = useToast();
+    const { app } = useFirebase();
+    const { user } = useAuth();
+    const storage = getStorage(app);
+    const db = getFirestore(app);
+
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files) {
@@ -35,12 +50,29 @@ const UploadMaterialForm = ({ onUpload }: { onUpload: (subject: string, file: Fi
         }
     };
 
-    const handleUpload = () => {
-        if (file && subject) {
-            onUpload(subject, file);
-            setFile(null);
-            setSubject('');
-            toast({ title: 'Success', description: 'Material uploaded.' });
+    const handleUpload = async () => {
+        if (file && subject && user) {
+            try {
+                const storageRef = ref(storage, `materials/${subject}/${file.name}`);
+                await uploadBytes(storageRef, file);
+                
+                await addDoc(collection(db, 'materials'), {
+                    title: file.name,
+                    type: file.type,
+                    size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
+                    subject: subject,
+                    uploaderId: user.uid,
+                    createdAt: serverTimestamp(),
+                    url: `materials/${subject}/${file.name}`
+                });
+
+                setFile(null);
+                setSubject('');
+                toast({ title: 'Success', description: 'Material uploaded.' });
+
+            } catch(e) {
+                 toast({ title: 'Upload Failed', description: 'Could not upload the material.', variant: 'destructive' });
+            }
         } else {
             toast({ title: 'Error', description: 'Please select a subject and a file.', variant: 'destructive' });
         }
@@ -96,29 +128,25 @@ const UploadMaterialForm = ({ onUpload }: { onUpload: (subject: string, file: Fi
 export default function MaterialsPage() {
     const { user } = useAuth();
     const canUpload = user?.role === 'Teacher' || user?.role === 'Admin';
-    const [studyMaterials, setStudyMaterials] = useState<MaterialsBySubject>(mockStudyMaterials);
+    const { app } = useFirebase();
+    const db = getFirestore(app);
 
-    const handleUpload = (subject: string, file: File) => {
-        const newMaterial: StudyMaterial = {
-            id: Date.now(),
-            title: file.name,
-            type: file.type.split('/')[1].toUpperCase(),
-            size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
-        };
+    const materialsQuery = query(collection(db, 'materials'), orderBy('createdAt', 'desc'));
+    const { data: materials, loading } = useCollection<StudyMaterial>(materialsQuery);
 
-        setStudyMaterials(prev => {
-            const materialsForSubject = prev[subject] ? [...prev[subject], newMaterial] : [newMaterial];
-            return {
-                ...prev,
-                [subject]: materialsForSubject,
-            };
-        });
-    };
+    const materialsBySubject = materials?.reduce((acc, material) => {
+        const { subject } = material;
+        if (!acc[subject]) {
+            acc[subject] = [];
+        }
+        acc[subject].push(material);
+        return acc;
+    }, {} as Record<string, StudyMaterial[]>) || {};
 
 
     return (
         <div className="space-y-6">
-            {canUpload && <UploadMaterialForm onUpload={handleUpload} />}
+            {canUpload && <UploadMaterialForm />}
 
             <Card>
                 <CardHeader>
@@ -126,31 +154,37 @@ export default function MaterialsPage() {
                     <CardDescription>Find all your course materials here, organized by subject.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Accordion type="single" collapsible className="w-full" defaultValue={Object.keys(studyMaterials)[0]}>
-                        {Object.entries(studyMaterials).map(([subject, materials]) => (
-                            <AccordionItem value={subject} key={subject}>
-                                <AccordionTrigger className="text-lg font-medium">{subject}</AccordionTrigger>
-                                <AccordionContent>
-                                    <ul className="space-y-2 pt-2">
-                                        {materials.map(material => (
-                                            <li key={material.id} className="flex items-center justify-between rounded-md border p-3">
-                                                <div className="flex items-center gap-3">
-                                                    <File className="h-5 w-5 text-primary"/>
-                                                    <div>
-                                                        <p className="font-medium">{material.title}</p>
-                                                        <p className="text-xs text-muted-foreground">{material.type} &middot; {material.size}</p>
+                    {loading && <p>Loading materials...</p>}
+                    {!loading && materials && (
+                        <Accordion type="single" collapsible className="w-full" defaultValue={Object.keys(materialsBySubject)[0]}>
+                            {Object.entries(materialsBySubject).map(([subject, subjectMaterials]) => (
+                                <AccordionItem value={subject} key={subject}>
+                                    <AccordionTrigger className="text-lg font-medium">{subject}</AccordionTrigger>
+                                    <AccordionContent>
+                                        <ul className="space-y-2 pt-2">
+                                            {subjectMaterials.map(material => (
+                                                <li key={material.id} className="flex items-center justify-between rounded-md border p-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <File className="h-5 w-5 text-primary"/>
+                                                        <div>
+                                                            <p className="font-medium">{material.title}</p>
+                                                            <p className="text-xs text-muted-foreground">{material.type.split('/')[1].toUpperCase()} &middot; {material.size}</p>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                                <Button variant="ghost" size="icon">
-                                                    <Download className="h-4 w-4"/>
-                                                </Button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </AccordionContent>
-                            </AccordionItem>
-                        ))}
-                    </Accordion>
+                                                    <Button variant="ghost" size="icon">
+                                                        <Download className="h-4 w-4"/>
+                                                    </Button>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            ))}
+                        </Accordion>
+                    )}
+                     {!loading && (!materials || materials.length === 0) && (
+                        <p className="text-center py-12 text-muted-foreground">No study materials available yet.</p>
+                     )}
                 </CardContent>
             </Card>
         </div>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useAuth } from '@/hooks/use-auth';
@@ -7,18 +6,38 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { polls as mockPolls, type Poll, type PollOption } from '@/lib/mock-data';
 import { CheckSquare, PlusCircle, Trash2 } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useState } from 'react';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
+import { useFirebase } from '@/firebase';
+import { getFirestore, collection, addDoc, serverTimestamp, doc, updateDoc, arrayUnion, arrayRemove, getDoc, query, orderBy } from 'firebase/firestore';
+import { useCollection } from '@/firebase/firestore/use-collection';
 
-const CreatePollForm = ({ onAddPoll }: { onAddPoll: (poll: Omit<Poll, 'id' | 'author' | 'date'>) => void }) => {
+type PollOption = {
+  id: number;
+  text: string;
+  votes: number;
+};
+
+type Poll = {
+  id: string;
+  question: string;
+  options: PollOption[];
+  author: string;
+  date: any;
+  votedBy: string[];
+};
+
+const CreatePollForm = () => {
+    const { user } = useAuth();
     const [open, setOpen] = useState(false);
     const [question, setQuestion] = useState('');
     const [options, setOptions] = useState(['', '']);
     const { toast } = useToast();
+    const { app } = useFirebase();
+    const db = getFirestore(app);
 
     const handleOptionChange = (index: number, value: string) => {
         const newOptions = [...options];
@@ -37,14 +56,25 @@ const CreatePollForm = ({ onAddPoll }: { onAddPoll: (poll: Omit<Poll, 'id' | 'au
         }
     };
 
-    const handleSubmit = () => {
-        if (question && options.every(opt => opt)) {
+    const handleSubmit = async () => {
+        if (question && options.every(opt => opt) && user) {
             const newPollOptions: PollOption[] = options.map((opt, index) => ({ id: index + 1, text: opt, votes: 0 }));
-            onAddPoll({ question, options: newPollOptions });
-            toast({ title: 'Success', description: 'Poll created successfully.' });
-            setOpen(false);
-            setQuestion('');
-            setOptions(['', '']);
+             try {
+                await addDoc(collection(db, 'polls'), {
+                    question,
+                    options: newPollOptions,
+                    author: user.name,
+                    authorId: user.uid,
+                    createdAt: serverTimestamp(),
+                    votedBy: []
+                });
+                toast({ title: 'Success', description: 'Poll created successfully.' });
+                setOpen(false);
+                setQuestion('');
+                setOptions(['', '']);
+            } catch (e) {
+                toast({ title: 'Error', description: 'Could not create poll.', variant: 'destructive' });
+            }
         } else {
             toast({ title: 'Error', description: 'Please fill out the question and all option fields.', variant: 'destructive' });
         }
@@ -116,28 +146,55 @@ const PollResults = ({ poll }: { poll: Poll }) => {
 };
 
 
-const PollCard = ({ poll, role, onVote }: { poll: Poll, role: 'Student' | 'Teacher' | 'Admin', onVote: (pollId: number, optionId: number) => void }) => {
+const PollCard = ({ poll }: { poll: Poll }) => {
+    const { user } = useAuth();
+    const { app } = useFirebase();
+    const db = getFirestore(app);
+    const { toast } = useToast();
     const [selectedOption, setSelectedOption] = useState<string | undefined>();
-    const [voted, setVoted] = useState(false);
+    
+    const hasVoted = user ? poll.votedBy.includes(user.uid) : false;
+    const isStudent = user?.role === 'Student';
+    const canVote = isStudent && !hasVoted;
 
-    const isStudent = role === 'Student';
-    const canVote = isStudent && !voted;
+    const handleVote = async () => {
+        if (selectedOption && user && canVote) {
+            const pollRef = doc(db, 'polls', poll.id);
+            try {
+                const pollDoc = await getDoc(pollRef);
+                if (!pollDoc.exists()) throw new Error("Poll not found");
 
-    const handleVote = () => {
-        if (selectedOption) {
-            setVoted(true);
-            onVote(poll.id, parseInt(selectedOption, 10));
+                const currentPollData = pollDoc.data() as Poll;
+                const newOptions = currentPollData.options.map(opt => 
+                    opt.id === parseInt(selectedOption, 10) ? { ...opt, votes: opt.votes + 1 } : opt
+                );
+                
+                await updateDoc(pollRef, {
+                    options: newOptions,
+                    votedBy: arrayUnion(user.uid)
+                });
+
+                toast({ title: 'Vote Cast!', description: "Your vote has been recorded." });
+
+            } catch (error) {
+                toast({ title: 'Error', description: 'Could not cast your vote.', variant: 'destructive' });
+            }
         }
+    }
+
+    const formatDate = (timestamp: any) => {
+        if (!timestamp) return 'Just now';
+        return timestamp.toDate().toLocaleDateString();
     }
 
     return (
         <Card>
             <CardHeader>
                 <CardTitle>{poll.question}</CardTitle>
-                <CardDescription>Posted by {poll.author} on {poll.date}</CardDescription>
+                <CardDescription>Posted by {poll.author} on {formatDate(poll.createdAt)}</CardDescription>
             </CardHeader>
             <CardContent>
-                { (voted || !isStudent) ? (
+                { (hasVoted || !isStudent) ? (
                     <PollResults poll={poll} />
                 ) : (
                     <RadioGroup value={selectedOption} onValueChange={setSelectedOption}>
@@ -161,53 +218,36 @@ const PollCard = ({ poll, role, onVote }: { poll: Poll, role: 'Student' | 'Teach
 
 export default function PollsPage() {
     const { user } = useAuth();
-    const [polls, setPolls] = useState(mockPolls);
+    const { app } = useFirebase();
+    const db = getFirestore(app);
+    const pollsQuery = query(collection(db, 'polls'), orderBy('createdAt', 'desc'));
+    const { data: polls, loading } = useCollection<Poll>(pollsQuery);
+
     const canCreate = user?.role === 'Teacher' || user?.role === 'Admin';
     
-    const handleAddPoll = (newPoll: Omit<Poll, 'id' | 'author' | 'date'>) => {
-        const pollToAdd: Poll = {
-            ...newPoll,
-            id: polls.length + 1,
-            author: user?.name || 'User',
-            date: new Date().toISOString().split('T')[0],
-        };
-        setPolls([pollToAdd, ...polls]);
-    };
-
-    const handleVote = (pollId: number, optionId: number) => {
-        setPolls(polls.map(p => {
-            if (p.id === pollId) {
-                const newOptions = p.options.map(opt => {
-                    if (opt.id === optionId) {
-                        return { ...opt, votes: opt.votes + 1 };
-                    }
-                    return opt;
-                });
-                return { ...p, options: newOptions };
-            }
-            return p;
-        }));
-    };
-
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-bold">Polls & Surveys</h1>
-                {canCreate && <CreatePollForm onAddPoll={handleAddPoll} />}
+                {canCreate && <CreatePollForm />}
             </div>
 
-            {polls.length > 0 ? (
+            {loading && <p>Loading polls...</p>}
+
+            {polls && polls.length > 0 ? (
                 <div className="grid gap-6 md:grid-cols-2">
                     {polls.map(poll => (
-                       <PollCard key={poll.id} poll={poll} role={user!.role} onVote={handleVote} />
+                       <PollCard key={poll.id} poll={poll} />
                     ))}
                 </div>
             ) : (
-                <div className="text-center py-12 text-muted-foreground">
-                    <CheckSquare className="mx-auto h-12 w-12"/>
-                    <h3 className="mt-4 text-lg font-semibold">No Polls Available</h3>
-                    <p className="mt-2 text-sm">There are no active polls or surveys at the moment.</p>
-                </div>
+                !loading && (
+                    <div className="text-center py-12 text-muted-foreground">
+                        <CheckSquare className="mx-auto h-12 w-12"/>
+                        <h3 className="mt-4 text-lg font-semibold">No Polls Available</h3>
+                        <p className="mt-2 text-sm">There are no active polls or surveys at the moment.</p>
+                    </div>
+                )
             )}
         </div>
     );

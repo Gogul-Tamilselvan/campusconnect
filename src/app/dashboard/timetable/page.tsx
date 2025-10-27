@@ -1,50 +1,187 @@
+'use client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { timetableData } from '@/lib/mock-data';
+import { useAuth } from '@/hooks/use-auth';
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { PlusCircle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { useFirebase } from '@/firebase';
+import { getFirestore, collection, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
+import { useCollection } from '@/firebase/firestore/use-collection';
+
+type TimetableEntry = {
+    id: string;
+    day: string;
+    time: string;
+    subject: string;
+    teacher: string;
+    department: string;
+    semester: string;
+};
+
+const CreateTimetableForm = () => {
+    const [open, setOpen] = useState(false);
+    const { toast } = useToast();
+    const { app } = useFirebase();
+    const db = getFirestore(app);
+
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
+        const data = Object.fromEntries(formData.entries());
+
+        if (Object.values(data).some(val => !val)) {
+            toast({ title: 'Error', description: 'All fields are required.', variant: 'destructive' });
+            return;
+        }
+
+        try {
+            await addDoc(collection(db, 'timetables'), {
+                ...data,
+                createdAt: serverTimestamp()
+            });
+            toast({ title: 'Success', description: 'Timetable entry added.' });
+            setOpen(false);
+        } catch (error) {
+            toast({ title: 'Error', description: 'Failed to add timetable entry.', variant: 'destructive' });
+        }
+    };
+    
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add Timetable Entry
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <form onSubmit={handleSubmit}>
+                    <DialogHeader>
+                        <DialogTitle>Create Timetable Entry</DialogTitle>
+                        <DialogDescription>Fill in the details for the new class schedule.</DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className='space-y-2'>
+                            <Label>Department</Label>
+                            <Select name="department">
+                                <SelectTrigger><SelectValue placeholder="Select Department" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Computer Science">Computer Science</SelectItem>
+                                    <SelectItem value="Mechanical">Mechanical</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                         <div className='space-y-2'>
+                            <Label>Semester</Label>
+                            <Select name="semester">
+                                <SelectTrigger><SelectValue placeholder="Select Semester" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="1st Semester">1st Semester</SelectItem>
+                                    <SelectItem value="3rd Semester">3rd Semester</SelectItem>
+                                    <SelectItem value="5th Semester">5th Semester</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className='space-y-2'>
+                            <Label>Day</Label>
+                            <Select name="day">
+                                <SelectTrigger><SelectValue placeholder="Select Day" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Monday">Monday</SelectItem>
+                                    <SelectItem value="Tuesday">Tuesday</SelectItem>
+                                    <SelectItem value="Wednesday">Wednesday</SelectItem>
+                                    <SelectItem value="Thursday">Thursday</SelectItem>
+                                    <SelectItem value="Friday">Friday</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className='space-y-2'>
+                            <Label htmlFor="time">Time Slot</Label>
+                            <Input id="time" name="time" placeholder="e.g., 9-10 AM" />
+                        </div>
+                         <div className='space-y-2'>
+                            <Label htmlFor="subject">Subject</Label>
+                            <Input id="subject" name="subject" placeholder="e.g., Data Structures" />
+                        </div>
+                         <div className='space-y-2'>
+                            <Label htmlFor="teacher">Teacher</Label>
+                            <Input id="teacher" name="teacher" placeholder="e.g., Dr. Alan" />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button type="submit">Add Entry</Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    )
+}
 
 export default function TimetablePage() {
+    const { user } = useAuth();
+    const isAdmin = user?.role === 'Admin';
+    const { app } = useFirebase();
+    const db = getFirestore(app);
+    const timetableQuery = query(collection(db, 'timetables'), orderBy('createdAt', 'asc'));
+    const {data, loading} = useCollection<TimetableEntry>(timetableQuery);
+    
+    // In a real app, you'd filter based on user's department/semester
     const semester = '3rd Semester';
     const department = 'Computer Science';
-    const data = timetableData[department]?.[semester] || [];
+    const timetableData = data?.filter(d => d.department === department && d.semester === semester) || [];
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>My Weekly Timetable</CardTitle>
-                <CardDescription>
-                    Showing schedule for {department}, {semester}.
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <div className="overflow-x-auto">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="w-[150px]">Day</TableHead>
-                                <TableHead>Time</TableHead>
-                                <TableHead>Subject</TableHead>
-                                <TableHead>Teacher</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {data.length > 0 ? data.map((item, index) => (
-                                <TableRow key={index}>
-                                    <TableCell className="font-medium">{item.day}</TableCell>
-                                    <TableCell>{item.time}</TableCell>
-                                    <TableCell>{item.subject}</TableCell>
-                                    <TableCell>{item.teacher}</TableCell>
-                                </TableRow>
-                            )) : (
-                                <TableRow>
-                                    <TableCell colSpan={4} className="text-center">
-                                        No timetable data available.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
+        <div className="space-y-6">
+            {isAdmin && (
+                <div className="flex justify-end">
+                    <CreateTimetableForm />
                 </div>
-            </CardContent>
-        </Card>
+            )}
+            <Card>
+                <CardHeader>
+                    <CardTitle>My Weekly Timetable</CardTitle>
+                    <CardDescription>
+                        Showing schedule for {department}, {semester}.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="overflow-x-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="w-[150px]">Day</TableHead>
+                                    <TableHead>Time</TableHead>
+                                    <TableHead>Subject</TableHead>
+                                    <TableHead>Teacher</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {loading && <TableRow><TableCell colSpan={4} className="text-center">Loading...</TableCell></TableRow>}
+                                {!loading && timetableData.length > 0 ? timetableData.map((item) => (
+                                    <TableRow key={item.id}>
+                                        <TableCell className="font-medium">{item.day}</TableCell>
+                                        <TableCell>{item.time}</TableCell>
+                                        <TableCell>{item.subject}</TableCell>
+                                        <TableCell>{item.teacher}</TableCell>
+                                    </TableRow>
+                                )) : !loading && (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="text-center">
+                                            No timetable data available.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
     );
 }

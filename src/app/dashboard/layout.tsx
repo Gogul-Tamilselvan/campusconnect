@@ -3,7 +3,7 @@
 import React from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
-  BarChart, Book, Calendar, Home, Megaphone, QrCode, ScrollText, Users, FileText, CheckSquare
+  BarChart, Book, Calendar, Home, Megaphone, QrCode, ScrollText, Users, CheckSquare
 } from 'lucide-react';
 
 import { useAuth } from '@/hooks/use-auth';
@@ -103,9 +103,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <SidebarMenu>
             {currentNavItems.map((item) => (
               <SidebarMenuItem key={item.href}>
-                <Link href={item.href} passHref>
+                <Link href={item.href}>
                   <SidebarMenuButton
-                    asChild
                     isActive={pathname === item.href}
                     tooltip={item.label}
                   >

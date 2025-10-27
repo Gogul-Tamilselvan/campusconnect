@@ -5,27 +5,50 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Megaphone, PlusCircle } from 'lucide-react';
-import { announcements as mockAnnouncements, type Announcement } from '@/lib/mock-data';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { useFirebase } from '@/firebase';
+import { getFirestore, collection, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
+import { useCollection } from '@/firebase/firestore/use-collection';
 
-const PostAnnouncementForm = ({ onAddAnnouncement }: { onAddAnnouncement: (announcement: Omit<Announcement, 'id' | 'author' | 'date'>) => void }) => {
+type Announcement = {
+    id: string;
+    title: string;
+    content: string;
+    author: string;
+    date: any; 
+};
+
+const PostAnnouncementForm = () => {
+    const { user } = useAuth();
+    const { app } = useFirebase();
+    const db = getFirestore(app);
     const [open, setOpen] = useState(false);
     const { toast } = useToast();
 
-    const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         const formData = new FormData(event.currentTarget);
         const title = formData.get('title') as string;
         const content = formData.get('content') as string;
 
-        if (title && content) {
-            onAddAnnouncement({ title, content, read: false });
-            toast({ title: "Success", description: "Announcement posted." });
-            setOpen(false);
+        if (title && content && user) {
+            try {
+                await addDoc(collection(db, 'announcements'), {
+                    title,
+                    content,
+                    author: user.name,
+                    authorId: user.uid,
+                    createdAt: serverTimestamp(),
+                });
+                toast({ title: "Success", description: "Announcement posted." });
+                setOpen(false);
+            } catch (error) {
+                 toast({ title: "Error", description: "Could not post announcement.", variant: "destructive" });
+            }
         } else {
             toast({ title: "Error", description: "Please fill out all fields.", variant: "destructive" });
         }
@@ -72,37 +95,39 @@ const PostAnnouncementForm = ({ onAddAnnouncement }: { onAddAnnouncement: (annou
 
 export default function AnnouncementsPage() {
     const { user } = useAuth();
-    const [announcements, setAnnouncements] = useState(mockAnnouncements);
+    const { app } = useFirebase();
+    const db = getFirestore(app);
+    
+    const announcementsQuery = query(collection(db, 'announcements'), orderBy('createdAt', 'desc'));
+    const { data: announcements, loading } = useCollection<Announcement>(announcementsQuery);
+    
     const canPost = user?.role === 'Admin' || user?.role === 'Teacher';
 
-    const handleAddAnnouncement = (newAnnouncement: Omit<Announcement, 'id' | 'author' | 'date'>) => {
-        const announcementToAdd: Announcement = {
-            ...newAnnouncement,
-            id: announcements.length + 1,
-            author: user?.name || 'User',
-            date: new Date().toISOString().split('T')[0],
-        };
-        setAnnouncements([announcementToAdd, ...announcements]);
-    };
-
+    const formatDate = (timestamp: any) => {
+        if (!timestamp) return 'Just now';
+        const date = timestamp.toDate();
+        return date.toLocaleDateString();
+    }
 
     return (
         <div className="space-y-6">
             {canPost && (
                 <div className="flex justify-end">
-                    <PostAnnouncementForm onAddAnnouncement={handleAddAnnouncement} />
+                    <PostAnnouncementForm />
                 </div>
             )}
             <div className="space-y-4">
-                {announcements.map(announcement => (
+                {loading && <p>Loading announcements...</p>}
+                {announcements && announcements.map(announcement => (
                     <Card key={announcement.id}>
                         <CardHeader>
                             <div className="flex items-center justify-between">
                                 <CardTitle>{announcement.title}</CardTitle>
-                                {!announcement.read && <Badge>New</Badge>}
+                                {/* Logic for 'read' status can be implemented with a subcollection per user */}
+                                <Badge>New</Badge>
                             </div>
                             <CardDescription>
-                                Posted by {announcement.author} on {announcement.date}
+                                Posted by {announcement.author} on {formatDate(announcement.createdAt)}
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -111,7 +136,7 @@ export default function AnnouncementsPage() {
                     </Card>
                 ))}
             </div>
-             {announcements.length === 0 && (
+             {!loading && announcements && announcements.length === 0 && (
                 <div className="text-center py-12 text-muted-foreground">
                     <Megaphone className="mx-auto h-12 w-12"/>
                     <h3 className="mt-4 text-lg font-semibold">No Announcements Yet</h3>

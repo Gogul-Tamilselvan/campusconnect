@@ -10,8 +10,19 @@ import { Badge } from '@/components/ui/badge';
 import { FormState, getEventSuggestions } from './actions';
 import { useEffect, useRef, useState } from 'react';
 import { Wand2, PlusCircle, ExternalLink } from 'lucide-react';
-import { events as mockEvents, type Event } from '@/lib/mock-data';
 import { useToast } from '@/hooks/use-toast';
+import { useFirebase } from '@/firebase';
+import { getFirestore, collection, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
+import { useCollection } from '@/firebase/firestore/use-collection';
+
+type Event = {
+  id: string;
+  name: string;
+  date: string;
+  category: string;
+  description: string;
+  createdAt: any;
+};
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -28,9 +39,14 @@ export default function EventsPage() {
   const [formState, formAction] = useFormState(getEventSuggestions, initialState);
   const { toast } = useToast();
   const formRef = useRef<HTMLFormElement>(null);
+  const { app } = useFirebase();
+  const db = getFirestore(app);
+
+  const eventsQuery = query(collection(db, 'events'), orderBy('createdAt', 'desc'));
+  const { data: events, loading } = useCollection<Event>(eventsQuery);
   
-  const [events, setEvents] = useState(mockEvents);
   const [eventName, setEventName] = useState('');
+  const [eventDate, setEventDate] = useState('');
   const [suggestedDescription, setSuggestedDescription] = useState('');
   const [suggestedCategory, setSuggestedCategory] = useState('');
 
@@ -49,36 +65,56 @@ export default function EventsPage() {
     }
   }, [formState, toast]);
 
-  const handleAddEvent = () => {
-    if (!eventName || !suggestedDescription || !suggestedCategory) {
+  const handleAddEvent = async () => {
+    if (!eventName || !eventDate || !suggestedDescription || !suggestedCategory) {
       toast({
         title: 'Missing Information',
-        description: 'Please generate suggestions and ensure event name, description, and category are filled.',
+        description: 'Please generate suggestions and ensure event name, date, description, and category are filled.',
         variant: 'destructive',
       });
       return;
     }
 
-    const newEvent: Event = {
-      id: events.length + 1,
-      name: eventName,
-      description: suggestedDescription,
-      category: suggestedCategory,
-      date: new Date().toISOString().split('T')[0], // Using today's date for simplicity
-    };
+    try {
+      await addDoc(collection(db, 'events'), {
+        name: eventName,
+        description: suggestedDescription,
+        category: suggestedCategory,
+        date: eventDate,
+        createdAt: serverTimestamp(),
+      });
+      
+      toast({
+        title: 'Event Created',
+        description: `${eventName} has been added to the calendar.`,
+      });
 
-    setEvents([newEvent, ...events]);
-    toast({
-      title: 'Event Created',
-      description: `${eventName} has been added to the calendar.`,
-    });
+      // Reset form
+      setEventName('');
+      setEventDate('');
+      setSuggestedDescription('');
+      setSuggestedCategory('');
+      formRef.current?.reset();
 
-    // Reset form
-    setEventName('');
-    setSuggestedDescription('');
-    setSuggestedCategory('');
-    formRef.current?.reset();
+    } catch (error) {
+       toast({
+        title: 'Error Creating Event',
+        description: 'There was a problem saving the event.',
+        variant: 'destructive',
+      });
+    }
   };
+  
+  const formatDate = (dateString: string) => {
+    if(!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: 'UTC' 
+    });
+  }
 
   return (
     <div className="grid gap-8 lg:grid-cols-3">
@@ -101,6 +137,17 @@ export default function EventsPage() {
                   required
                 />
                  {formState?.issues && <p className="text-sm text-destructive">{formState.issues[0]}</p>}
+              </div>
+               <div className="space-y-2">
+                <Label htmlFor="eventDate">Event Date</Label>
+                <Input
+                  id="eventDate"
+                  name="eventDate"
+                  type="date"
+                  value={eventDate}
+                  onChange={(e) => setEventDate(e.target.value)}
+                  required
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="eventDetails">Event Details (Optional)</Label>
@@ -151,12 +198,13 @@ export default function EventsPage() {
                 <CardDescription>Here are the scheduled events for the campus.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                {events.map(event => (
+                {loading && <p>Loading events...</p>}
+                {events && events.map(event => (
                     <div key={event.id} className="p-4 border rounded-lg flex items-start justify-between">
                         <div>
                             <Badge variant="outline" className="mb-2">{event.category}</Badge>
                             <h3 className="font-semibold">{event.name}</h3>
-                            <p className="text-sm text-muted-foreground">{event.date}</p>
+                            <p className="text-sm text-muted-foreground">{formatDate(event.date)}</p>
                             <p className="text-sm mt-1">{event.description}</p>
                         </div>
                         <Button variant="ghost" size="sm">
@@ -165,6 +213,9 @@ export default function EventsPage() {
                         </Button>
                     </div>
                 ))}
+                 {!loading && events && events.length === 0 && (
+                    <p className="text-center py-12 text-muted-foreground">No upcoming events.</p>
+                 )}
             </CardContent>
         </Card>
       </div>
