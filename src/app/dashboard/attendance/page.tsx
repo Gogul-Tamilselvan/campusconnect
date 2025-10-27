@@ -344,8 +344,19 @@ const StudentAttendance = () => {
     const { app } = useFirebase();
     const db = getFirestore(app);
     
-    const attendanceQuery = user ? query(collection(db, 'attendance'), where('studentId', '==', user.uid), orderBy('createdAt', 'desc')) : null;
+    const attendanceQuery = user ? query(collection(db, 'attendance'), where('studentId', '==', user.uid)) : null;
     const { data: attendanceRecords, loading } = useCollection<AttendanceRecord>(attendanceQuery);
+    
+    const sortedRecords = useMemo(() => {
+        if (!attendanceRecords) return [];
+        return [...attendanceRecords].sort((a, b) => {
+             if (a.createdAt && b.createdAt) {
+                return b.createdAt.seconds - a.createdAt.seconds;
+            }
+            // fallback for older records without createdAt
+            return new Date(b.date).getTime() - new Date(a.date).getTime();
+        });
+    }, [attendanceRecords]);
 
     return (
         <div className="grid md:grid-cols-2 gap-6">
@@ -381,7 +392,7 @@ const StudentAttendance = () => {
                         </TableHeader>
                         <TableBody>
                             {loading && <TableRow><TableCell colSpan={3} className="text-center">Loading...</TableCell></TableRow>}
-                            {attendanceRecords && attendanceRecords.map((record) => (
+                            {sortedRecords && sortedRecords.map((record) => (
                                 <TableRow key={record.id}>
                                     <TableCell className="font-medium">{record.date}</TableCell>
                                     <TableCell>{record.subject}</TableCell>
@@ -392,7 +403,7 @@ const StudentAttendance = () => {
                                     </TableCell>
                                 </TableRow>
                             ))}
-                            {!loading && attendanceRecords?.length === 0 && (
+                            {!loading && sortedRecords?.length === 0 && (
                                 <TableRow>
                                     <TableCell colSpan={3} className="text-center text-muted-foreground">No attendance records found.</TableCell>
                                 </TableRow>
