@@ -60,9 +60,9 @@ export default function SignupPage() {
       await signup(email, password, username, role, department, semester);
       toast({
           title: 'Signup Successful',
-          description: "You can now log in with your credentials.",
+          description: "Welcome! You will be redirected to your dashboard.",
       });
-      router.push('/login');
+      router.push('/dashboard');
     } catch(error: any) {
        toast({
         title: 'Signup Failed',
