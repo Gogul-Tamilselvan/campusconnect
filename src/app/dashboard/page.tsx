@@ -12,15 +12,17 @@ const AdminDashboard = () => {
     const { app } = useFirebase();
     const db = getFirestore(app);
     
-    const { data: users } = useCollection<User>(collection(db, 'users'));
-    const { data: blogPosts } = useCollection(collection(db, 'blogPosts'));
-    const { data: events } = useCollection(collection(db, 'events'));
+    const { data: users, loading: usersLoading } = useCollection<User>(collection(db, 'users'));
+    const { data: blogPosts, loading: blogPostsLoading } = useCollection(collection(db, 'blogPosts'));
+    const { data: events, loading: eventsLoading } = useCollection(collection(db, 'events'));
 
     const totalStudents = users?.filter(u => u.role === 'Student').length || 0;
     const totalTeachers = users?.filter(u => u.role === 'Teacher').length || 0;
     const pendingBlogs = blogPosts?.filter(p => p.status === 'Pending').length || 0;
     const activeEvents = events?.length || 0;
     
+    const loading = usersLoading || blogPostsLoading || eventsLoading;
+
     return (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
@@ -29,7 +31,7 @@ const AdminDashboard = () => {
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{totalStudents}</div>
+                {loading ? <div className="text-2xl font-bold">-</div> : <div className="text-2xl font-bold">{totalStudents}</div>}
                 <p className="text-xs text-muted-foreground">Currently enrolled</p>
               </CardContent>
             </Card>
@@ -39,7 +41,7 @@ const AdminDashboard = () => {
                 <Book className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{pendingBlogs}</div>
+                {loading ? <div className="text-2xl font-bold">-</div> : <div className="text-2xl font-bold">{pendingBlogs}</div>}
                 <p className="text-xs text-muted-foreground">Ready for review</p>
               </CardContent>
             </Card>
@@ -49,7 +51,7 @@ const AdminDashboard = () => {
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{totalTeachers}</div>
+                {loading ? <div className="text-2xl font-bold">-</div> : <div className="text-2xl font-bold">{totalTeachers}</div>}
                  <p className="text-xs text-muted-foreground">On staff</p>
               </CardContent>
             </Card>
@@ -59,7 +61,7 @@ const AdminDashboard = () => {
                 <Calendar className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{activeEvents}</div>
+                {loading ? <div className="text-2xl font-bold">-</div> : <div className="text-2xl font-bold">{activeEvents}</div>}
                 <p className="text-xs text-muted-foreground">Upcoming this month</p>
               </CardContent>
             </Card>
@@ -77,9 +79,11 @@ const TeacherDashboard = () => {
     const currentDay = days[today.getDay()];
 
     const timetableQuery = user ? query(collection(db, 'timetables'), where('teacher', '==', user.name), where('day', '==', currentDay)) : null;
-    const { data: upcomingClasses } = useCollection(timetableQuery);
-    const { data: announcements } = useCollection(collection(db, 'announcements'));
-    const { data: materials } = useCollection(collection(db, 'materials'));
+    const { data: upcomingClasses, loading: classesLoading } = useCollection(timetableQuery);
+    const { data: announcements, loading: announcementsLoading } = useCollection(collection(db, 'announcements'));
+    const { data: materials, loading: materialsLoading } = useCollection(collection(db, 'materials'));
+
+    const loading = classesLoading || announcementsLoading || materialsLoading;
 
     return (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -89,7 +93,7 @@ const TeacherDashboard = () => {
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{upcomingClasses?.length || 0}</div>
+            {loading ? <div className="text-2xl font-bold">-</div> : <div className="text-2xl font-bold">{upcomingClasses?.length || 0}</div>}
             <p className="text-xs text-muted-foreground">classes scheduled for today</p>
           </CardContent>
         </Card>
@@ -99,7 +103,7 @@ const TeacherDashboard = () => {
             <Megaphone className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
            <CardContent>
-            <div className="text-2xl font-bold">{announcements?.length || 0}</div>
+             {loading ? <div className="text-2xl font-bold">-</div> : <div className="text-2xl font-bold">{announcements?.length || 0}</div>}
             <p className="text-xs text-muted-foreground">announcements posted</p>
           </CardContent>
         </Card>
@@ -109,7 +113,7 @@ const TeacherDashboard = () => {
             <Book className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
            <CardContent>
-            <div className="text-2xl font-bold">{materials?.length || 0}</div>
+             {loading ? <div className="text-2xl font-bold">-</div> : <div className="text-2xl font-bold">{materials?.length || 0}</div>}
             <p className="text-xs text-muted-foreground">materials uploaded</p>
           </CardContent>
         </Card>
@@ -123,16 +127,18 @@ const StudentDashboard = () => {
     const db = getFirestore(app);
 
     const attendanceQuery = user ? query(collection(db, 'attendance'), where('studentId', '==', user.uid)) : null;
-    const { data: attendanceRecords } = useCollection(attendanceQuery);
+    const { data: attendanceRecords, loading: attendanceLoading } = useCollection(attendanceQuery);
     
-    const { data: events } = useCollection(collection(db, 'events'));
-    const { data: announcements } = useCollection(collection(db, 'announcements'));
+    const { data: events, loading: eventsLoading } = useCollection(collection(db, 'events'));
+    const { data: announcements, loading: announcementsLoading } = useCollection(collection(db, 'announcements'));
     
     const overallAttendance = () => {
         if (!attendanceRecords || attendanceRecords.length === 0) return 0;
         const presentCount = attendanceRecords.filter(r => r.status === 'Present').length;
         return Math.round((presentCount / attendanceRecords.length) * 100);
     }
+    
+    const loading = attendanceLoading || eventsLoading || announcementsLoading;
 
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -142,7 +148,7 @@ const StudentDashboard = () => {
             <BarChart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{overallAttendance()}%</div>
+            {loading ? <div className="text-2xl font-bold">-</div> : <div className="text-2xl font-bold">{overallAttendance()}%</div>}
             <p className="text-xs text-muted-foreground">Based on all recorded classes</p>
           </CardContent>
         </Card>
@@ -152,7 +158,7 @@ const StudentDashboard = () => {
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{events?.length || 0}</div>
+            {loading ? <div className="text-2xl font-bold">-</div> : <div className="text-2xl font-bold">{events?.length || 0}</div>}
             <p className="text-xs text-muted-foreground">Check the events page for details</p>
           </CardContent>
         </Card>
@@ -162,7 +168,7 @@ const StudentDashboard = () => {
             <Megaphone className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{announcements?.length || 0}</div>
+            {loading ? <div className="text-2xl font-bold">-</div> : <div className="text-2xl font-bold">{announcements?.length || 0}</div>}
             <p className="text-xs text-muted-foreground">Check the announcements page</p>
           </CardContent>
         </Card>
