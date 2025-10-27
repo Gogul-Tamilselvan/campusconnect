@@ -14,6 +14,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useFirebase } from '@/firebase';
 import { getFirestore, collection, query, where, orderBy } from 'firebase/firestore';
 import { useCollection } from '@/firebase/firestore/use-collection';
+import QRCode from "react-qr-code";
 
 type AttendanceRecord = {
     id: string;
@@ -135,7 +136,6 @@ const TeacherAttendance = () => {
 };
 
 const StudentAttendance = () => {
-    const qrCodeImage = PlaceHolderImages.find(img => img.id === 'qr-code');
     const { user } = useAuth();
     const { app } = useFirebase();
     const db = getFirestore(app);
@@ -151,15 +151,9 @@ const StudentAttendance = () => {
                     <CardDescription>Present this QR code to your teacher for attendance.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    {qrCodeImage && (
-                        <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8">
-                            <Image
-                                src={qrCodeImage.imageUrl}
-                                alt={qrCodeImage.description}
-                                width={200}
-                                height={200}
-                                data-ai-hint={qrCodeImage.imageHint}
-                            />
+                    {user?.uid && (
+                        <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 bg-white">
+                             <QRCode value={user.uid} />
                             <p className="mt-4 text-sm text-muted-foreground">
                                 This code identifies you, {user?.name}.
                             </p>
