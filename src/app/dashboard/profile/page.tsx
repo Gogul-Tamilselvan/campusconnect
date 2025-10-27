@@ -8,8 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase } from '@/firebase';
-import { doc, updateDoc, getFirestore } from 'firebase/firestore';
-import { useState } from 'react';
+import { doc, updateDoc, getFirestore, collection, query, orderBy } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useCollection } from '@/firebase/firestore/use-collection';
 
 export default function ProfilePage() {
     const { user } = useAuth();
@@ -17,7 +19,24 @@ export default function ProfilePage() {
     const { app } = useFirebase();
     const db = getFirestore(app);
     const [name, setName] = useState(user?.name || '');
+    const [department, setDepartment] = useState(user?.department || '');
+    const [semester, setSemester] = useState(user?.semester || '');
     const [isSaving, setIsSaving] = useState(false);
+
+    const departmentsQuery = query(collection(db, 'departments'), orderBy('name', 'asc'));
+    const { data: departments, loading: departmentsLoading } = useCollection<{id:string, name:string}>(departmentsQuery);
+
+    const semestersQuery = query(collection(db, 'semesters'), orderBy('name', 'asc'));
+    const { data: semesters, loading: semestersLoading } = useCollection<{id:string, name:string}>(semestersQuery);
+    
+    useEffect(() => {
+        if(user) {
+            setName(user.name);
+            setDepartment(user.department || '');
+            setSemester(user.semester || '');
+        }
+    }, [user])
+
 
     const handleProfileUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -32,17 +51,17 @@ export default function ProfilePage() {
 
         setIsSaving(true);
         const userDocRef = doc(db, 'users', user.uid);
+        
+        const dataToUpdate:any = { name };
+        if (department) dataToUpdate.department = department;
+        if (semester) dataToUpdate.semester = semester;
 
         try {
-            await updateDoc(userDocRef, { name });
+            await updateDoc(userDocRef, dataToUpdate);
             toast({
                 title: 'Success!',
                 description: 'Your profile has been updated.',
             });
-            // Note: The user object in useAuth will need to be refreshed to show the new name instantly.
-            // This would typically involve re-fetching the user data in the AuthProvider.
-            // For now, a page refresh would show the change in the main layout.
-
         } catch (error) {
             toast({
                 variant: 'destructive',
@@ -86,6 +105,34 @@ export default function ProfilePage() {
                                 onChange={(e) => setName(e.target.value)}
                             />
                         </div>
+                        
+                        {user.role === 'Student' && (
+                             <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label>Department</Label>
+                                    <Select onValueChange={setDepartment} value={department}>
+                                        <SelectTrigger><SelectValue placeholder="Select Department" /></SelectTrigger>
+                                        <SelectContent>
+                                            {departmentsLoading ? <SelectItem value="loading" disabled>Loading...</SelectItem> : 
+                                            departments?.map(d => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)
+                                            }
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Semester</Label>
+                                    <Select onValueChange={setSemester} value={semester}>
+                                        <SelectTrigger><SelectValue placeholder="Select Semester" /></SelectTrigger>
+                                        <SelectContent>
+                                            {semestersLoading ? <SelectItem value="loading" disabled>Loading...</SelectItem> :
+                                                semesters?.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)
+                                            }
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                             </div>
+                        )}
+
                         <Button type="submit" disabled={isSaving}>
                             {isSaving ? 'Saving...' : 'Save Changes'}
                         </Button>

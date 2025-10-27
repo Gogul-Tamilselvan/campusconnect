@@ -50,8 +50,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signOut(auth);
   };
 
-  const signup = async (email: string, password?: string, username?: string, role?: UserRole) => {
-    if (!password || !username || !role || !email) {
+  const signup = async (email: string, password?: string, username?: string, department?: string, semester?: string) => {
+    if (!password || !username || !email || !department || !semester) {
       throw new Error("Missing fields for signup");
     }
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -60,9 +60,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const userDocRef = doc(db, 'users', firebaseUser.uid);
     const userData = {
       name: username,
-      role: role,
+      role: 'Student',
       avatarUrl: `https://i.pravatar.cc/150?u=${firebaseUser.uid}`,
       email: email,
+      department: department,
+      semester: semester
     };
     
     setDoc(userDocRef, userData)
