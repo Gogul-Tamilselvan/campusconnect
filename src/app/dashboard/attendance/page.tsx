@@ -156,8 +156,10 @@ const TeacherAttendance = () => {
 
                     if (videoRef.current) {
                         videoRef.current.srcObject = stream;
+                        videoRef.current.play().then(() => {
+                            animationFrameId = requestAnimationFrame(scanQrCode);
+                        });
                     }
-                    animationFrameId = requestAnimationFrame(scanQrCode);
                 } catch (error) {
                     console.error('Error accessing camera:', error);
                     setHasCameraPermission(false);
