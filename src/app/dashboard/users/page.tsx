@@ -10,7 +10,7 @@ import { useCollection } from '@/firebase/firestore/use-collection';
 import { User, UserRole } from '@/lib/types';
 import { Shield, User as UserIcon, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -25,6 +25,7 @@ const EditUserDialog = ({ user, open, onOpenChange, onUserUpdate }: { user: User
     const [role, setRole] = useState<UserRole>('Student');
     const [department, setDepartment] = useState('');
     const [semester, setSemester] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
 
     const departmentsQuery = query(collection(db, 'departments'), orderBy('name', 'asc'));
     const { data: departments, loading: departmentsLoading } = useCollection<{id:string, name:string}>(departmentsQuery);
@@ -44,6 +45,7 @@ const EditUserDialog = ({ user, open, onOpenChange, onUserUpdate }: { user: User
 
     const handleUpdate = async () => {
         if (!user) return;
+        setIsSaving(true);
 
         const userDocRef = doc(db, 'users', user.uid);
         const dataToUpdate: Partial<User> = {
@@ -55,6 +57,7 @@ const EditUserDialog = ({ user, open, onOpenChange, onUserUpdate }: { user: User
             dataToUpdate.department = department;
             dataToUpdate.semester = semester;
         } else {
+            // Clear department and semester if user is not a student
             dataToUpdate.department = '';
             dataToUpdate.semester = '';
         }
@@ -65,15 +68,23 @@ const EditUserDialog = ({ user, open, onOpenChange, onUserUpdate }: { user: User
             onUserUpdate();
             onOpenChange(false);
         } catch (error) {
+            console.error("Error updating user:", error);
             toast({ title: 'Error', description: 'Failed to update user.', variant: 'destructive' });
+        } finally {
+            setIsSaving(false);
         }
     };
+
+    if (!user) return null;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Edit User: {user?.name}</DialogTitle>
+                    <DialogTitle>Edit User: {user.name}</DialogTitle>
+                     <DialogDescription>
+                        Modify the user's details below.
+                    </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     <div className="space-y-2">
@@ -122,7 +133,7 @@ const EditUserDialog = ({ user, open, onOpenChange, onUserUpdate }: { user: User
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-                    <Button onClick={handleUpdate}>Save Changes</Button>
+                    <Button onClick={handleUpdate} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Changes'}</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -131,16 +142,17 @@ const EditUserDialog = ({ user, open, onOpenChange, onUserUpdate }: { user: User
 
 
 export default function ManageUsersPage() {
-    const { user } = useAuth();
+    const { user: currentUser } = useAuth();
     const { app } = useFirebase();
     const db = getFirestore(app);
-    const usersQuery = collection(db, 'users');
+    // Correctly query all users without any filters.
+    const usersQuery = query(collection(db, 'users'), orderBy('name', 'asc'));
     const { data: users, loading, refetch: refetchUsers } = useCollection<User>(usersQuery);
 
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
-    if (user?.role !== 'Admin') {
+    if (currentUser?.role !== 'Admin') {
         return <p>You do not have permission to view this page.</p>;
     }
 
@@ -172,19 +184,20 @@ export default function ManageUsersPage() {
                                 <TableHead>User</TableHead>
                                 <TableHead>Email</TableHead>
                                 <TableHead>Role</TableHead>
+                                <TableHead className="hidden md:table-cell">Department</TableHead>
+                                <TableHead className="hidden md:table-cell">Semester</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {loading && <TableRow><TableCell colSpan={4} className="text-center">Loading users...</TableCell></TableRow>}
+                            {loading && <TableRow><TableCell colSpan={6} className="text-center">Loading users...</TableCell></TableRow>}
                             {users && users.map(u => (
-                                <TableRow key={u.id}>
+                                <TableRow key={u.uid}>
                                     <TableCell>
                                         <div className="flex items-center gap-3">
                                             <Avatar>
                                                 <AvatarImage src={u.avatarUrl} alt={u.name} />
                                                 <AvatarFallback>{u.name.charAt(0)}</AvatarFallback>
-
                                             </Avatar>
                                             <span className="font-medium">{u.name}</span>
                                         </div>
@@ -196,6 +209,8 @@ export default function ManageUsersPage() {
                                             {u.role}
                                         </Badge>
                                     </TableCell>
+                                    <TableCell className="hidden md:table-cell">{u.department || 'N/A'}</TableCell>
+                                    <TableCell className="hidden md:table-cell">{u.semester || 'N/A'}</TableCell>
                                     <TableCell className="text-right">
                                         <Button variant="ghost" size="icon" onClick={() => handleEditClick(u)}>
                                             <Edit className="h-4 w-4" />
@@ -203,6 +218,11 @@ export default function ManageUsersPage() {
                                     </TableCell>
                                 </TableRow>
                             ))}
+                            {!loading && users?.length === 0 && (
+                                 <TableRow>
+                                    <TableCell colSpan={6} className="text-center">No users found.</TableCell>
+                                </TableRow>
+                            )}
                         </TableBody>
                     </Table>
                 </CardContent>
