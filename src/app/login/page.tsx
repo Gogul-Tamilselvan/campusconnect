@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { GraduationCap, KeyRound, User as UserIcon } from 'lucide-react';
+import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -66,6 +67,12 @@ export default function LoginPage() {
             <Button onClick={handleLogin} disabled={!role} className="w-full">
               Sign In
             </Button>
+             <div className="mt-4 text-center text-sm">
+                Don&apos;t have an account?{' '}
+                <Link href="#" className="underline">
+                    Sign up
+                </Link>
+            </div>
           </div>
         </CardContent>
       </Card>

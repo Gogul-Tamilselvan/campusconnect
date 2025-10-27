@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { AuthContext } from '@/hooks/use-auth';
 import type { User, UserRole } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -13,6 +13,12 @@ const MOCK_USERS: Record<UserRole, User> = {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Simulate checking for a logged-in user
+    setLoading(false);
+  }, []);
 
   const login = (role: UserRole) => {
     setUser(MOCK_USERS[role]);
@@ -24,9 +30,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo(() => ({
     user,
+    loading,
     login,
     logout,
-  }), [user]);
+  }), [user, loading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

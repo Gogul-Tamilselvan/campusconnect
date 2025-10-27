@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
-  BarChart, Book, Calendar, Home, Megaphone, QrCode, ScrollText, Users, FileText 
+  BarChart, Book, Calendar, Home, Megaphone, QrCode, ScrollText, Users, FileText, CheckSquare
 } from 'lucide-react';
 
 import { useAuth } from '@/hooks/use-auth';
@@ -22,7 +22,6 @@ import { Logo } from '@/components/logo';
 import { UserNav } from '@/components/user-nav';
 import type { UserRole } from '@/lib/types';
 import Link from 'next/link';
-import { Separator } from '@/components/ui/separator';
 
 const navItems: Record<UserRole, { href: string; icon: React.ElementType; label: string; }[]> = {
   Student: [
@@ -33,6 +32,7 @@ const navItems: Record<UserRole, { href: string; icon: React.ElementType; label:
     { href: '/dashboard/materials', icon: Book, label: 'Study Materials' },
     { href: '/dashboard/blog', icon: ScrollText, label: 'Blog' },
     { href: '/dashboard/events', icon: Calendar, label: 'Events' },
+    { href: '/dashboard/polls', icon: CheckSquare, label: 'Polls & Surveys' },
   ],
   Teacher: [
     { href: '/dashboard', icon: Home, label: 'Dashboard' },
@@ -42,6 +42,7 @@ const navItems: Record<UserRole, { href: string; icon: React.ElementType; label:
     { href: '/dashboard/materials', icon: Book, label: 'Upload Material' },
     { href: '/dashboard/blog', icon: ScrollText, label: 'My Blogs' },
     { href: '/dashboard/events', icon: Calendar, label: 'Events' },
+    { href: '/dashboard/polls', icon: CheckSquare, label: 'Polls & Surveys' },
   ],
   Admin: [
     { href: '/dashboard', icon: Home, label: 'Dashboard' },
@@ -52,6 +53,7 @@ const navItems: Record<UserRole, { href: string; icon: React.ElementType; label:
     { href: '/dashboard/blog', icon: ScrollText, label: 'Approve Blogs' },
     { href: '/dashboard/events', icon: Calendar, label: 'Manage Events' },
     { href: '/dashboard/users', icon: Users, label: 'Manage Users' },
+    { href: '/dashboard/polls', icon: CheckSquare, label: 'Manage Polls' },
   ],
 };
 
@@ -64,21 +66,22 @@ const pageTitles: { [key: string]: string } = {
   '/dashboard/blog': 'Blog',
   '/dashboard/events': 'Events Calendar',
   '/dashboard/users': 'User Management',
+  '/dashboard/polls': 'Polls & Surveys',
 };
 
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
-  useEffect(() => {
-    if (!user) {
+  React.useEffect(() => {
+    if (!loading && !user) {
       router.replace('/login');
     }
-  }, [user, router]);
+  }, [user, loading, router]);
 
-  if (!user) {
+  if (loading || !user) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <p>Loading...</p>

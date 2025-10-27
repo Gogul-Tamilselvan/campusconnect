@@ -9,22 +9,27 @@ import { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { attendanceRecords } from '@/lib/mock-data';
 import { Badge } from '@/components/ui/badge';
+import { Camera } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
 
 const TeacherAttendance = () => {
-    const [qrVisible, setQrVisible] = useState(false);
-    const qrCodeImage = PlaceHolderImages.find(img => img.id === 'qr-code');
-
+    const handleScan = () => {
+        toast({
+            title: "Scanner Activated",
+            description: "Ready to scan student QR codes.",
+        });
+    }
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Generate Attendance QR Code</CardTitle>
-                <CardDescription>Select a subject and generate a QR code for students to scan.</CardDescription>
+                <CardTitle>Take Attendance</CardTitle>
+                <CardDescription>Scan student QR codes to mark them as present.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                <div className="flex flex-col sm:flex-row gap-4 items-center">
+                 <div className="flex flex-col sm:flex-row gap-4 items-center">
                     <Select>
                         <SelectTrigger className="w-full sm:w-[280px]">
-                            <SelectValue placeholder="Select a subject" />
+                            <SelectValue placeholder="Select a class" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="ds">Data Structures</SelectItem>
@@ -32,59 +37,78 @@ const TeacherAttendance = () => {
                             <SelectItem value="dbms">Database Systems</SelectItem>
                         </SelectContent>
                     </Select>
-                    <Button onClick={() => setQrVisible(true)}>Generate QR Code</Button>
+                    <Button onClick={handleScan}>
+                        <Camera className="mr-2 h-4 w-4" />
+                        Scan QR Code
+                    </Button>
                 </div>
-                {qrVisible && qrCodeImage && (
-                    <div className="mt-6 flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8">
-                        <Image
-                            src={qrCodeImage.imageUrl}
-                            alt={qrCodeImage.description}
-                            width={200}
-                            height={200}
-                            data-ai-hint={qrCodeImage.imageHint}
-                        />
-                        <p className="mt-4 text-sm text-muted-foreground">
-                            QR code for Data Structures - Valid for 5 minutes.
-                        </p>
-                    </div>
-                )}
+                <div className="mt-6 border-t pt-4">
+                    <h3 className="font-semibold mb-2">Today's Attendance: Data Structures</h3>
+                    <p className="text-sm text-muted-foreground">32/40 students present.</p>
+                </div>
             </CardContent>
         </Card>
     );
 };
 
 const StudentAttendance = () => {
+    const qrCodeImage = PlaceHolderImages.find(img => img.id === 'qr-code');
+
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>My Attendance Record</CardTitle>
-                <CardDescription>Here is your attendance history across all subjects.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Subject</TableHead>
-                            <TableHead className="text-right">Status</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {attendanceRecords.map((record, index) => (
-                            <TableRow key={index}>
-                                <TableCell className="font-medium">{record.date}</TableCell>
-                                <TableCell>{record.subject}</TableCell>
-                                <TableCell className="text-right">
-                                    <Badge variant={record.status === 'Present' ? 'default' : 'destructive'} className={record.status === 'Present' ? 'bg-green-500' : 'bg-red-500'}>
-                                        {record.status}
-                                    </Badge>
-                                </TableCell>
+        <div className="grid md:grid-cols-2 gap-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>My Attendance QR Code</CardTitle>
+                    <CardDescription>Present this QR code to your teacher for attendance.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {qrCodeImage && (
+                        <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8">
+                            <Image
+                                src={qrCodeImage.imageUrl}
+                                alt={qrCodeImage.description}
+                                width={200}
+                                height={200}
+                                data-ai-hint={qrCodeImage.imageHint}
+                            />
+                            <p className="mt-4 text-sm text-muted-foreground">
+                                This code identifies you, Student User.
+                            </p>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader>
+                    <CardTitle>My Attendance Record</CardTitle>
+                    <CardDescription>Here is your attendance history across all subjects.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Date</TableHead>
+                                <TableHead>Subject</TableHead>
+                                <TableHead className="text-right">Status</TableHead>
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
+                        </TableHeader>
+                        <TableBody>
+                            {attendanceRecords.map((record, index) => (
+                                <TableRow key={index}>
+                                    <TableCell className="font-medium">{record.date}</TableCell>
+                                    <TableCell>{record.subject}</TableCell>
+                                    <TableCell className="text-right">
+                                        <Badge variant={record.status === 'Present' ? 'default' : 'destructive'} className={record.status === 'Present' ? 'bg-green-500' : 'bg-red-500'}>
+                                            {record.status}
+                                        </Badge>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+        </div>
     );
 }
 

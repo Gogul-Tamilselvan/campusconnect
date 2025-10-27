@@ -1,5 +1,20 @@
 import { PlaceHolderImages } from "./placeholder-images";
 
+export type PollOption = {
+  id: number;
+  text: string;
+  votes: number;
+};
+
+export type Poll = {
+  id: number;
+  question: string;
+  options: PollOption[];
+  author: string;
+  date: string;
+};
+
+
 export const timetableData = {
     'Computer Science': {
       '1st Semester': [
@@ -50,7 +65,7 @@ export const timetableData = {
   export const events = [
     {
       id: 1,
-      name: 'Innovate & Create Hackathon',
+      name: 'Innovate &amp; Create Hackathon',
       date: '2024-11-15',
       category: 'Tech Fest',
       description: 'A 24-hour hackathon to build innovative solutions for real-world problems.'
@@ -70,4 +85,29 @@ export const timetableData = {
       description: 'The final examinations for the fall semester will commence.'
     }
   ];
+
+  export const polls: Poll[] = [
+    {
+        id: 1,
+        question: 'What is the best time for the extra class on Advanced Algorithms?',
+        author: 'Teacher User',
+        date: '2024-10-18',
+        options: [
+            { id: 1, text: 'Saturday, 10 AM - 12 PM', votes: 15 },
+            { id: 2, text: 'Sunday, 2 PM - 4 PM', votes: 8 },
+            { id: 3, text: 'Friday, 5 PM - 7 PM', votes: 12 },
+        ]
+    },
+    {
+        id: 2,
+        question: 'Which topic should we cover next in the Web Dev club?',
+        author: 'Teacher User',
+        date: '2024-10-17',
+        options: [
+            { id: 1, text: 'Advanced CSS Animations', votes: 22 },
+            { id: 2, text: 'GraphQL Basics', votes: 18 },
+            { id: 3, text: 'WebSockets for Real-time Apps', votes: 14 },
+        ]
+    }
+];
   
