@@ -176,7 +176,9 @@ const TeacherAttendance = () => {
                     videoRef.current.srcObject = stream;
                     videoRef.current.onloadedmetadata = () => {
                         videoRef.current?.play().catch(e => console.error("Video play error:", e));
-                        animationFrameId = requestAnimationFrame(scanQrCode);
+                        if (isScanning) {
+                           animationFrameId = requestAnimationFrame(scanQrCode);
+                        }
                     };
                 }
             } catch (error) {
@@ -436,3 +438,5 @@ export default function AttendancePage() {
         </div>
     );
 }
+
+    
