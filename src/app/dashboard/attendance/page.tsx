@@ -70,14 +70,12 @@ const TeacherAttendance = () => {
     const markAttendance = async (studentId: string, subject: Subject) => {
         if (!studentId || !subject) return;
 
-        // Check if student has already been marked present
         if (presentStudents.some(p => p.id === studentId)) {
             toast({ title: "Already Marked", description: "This student's attendance has already been recorded.", variant: "default" });
             return;
         }
 
         try {
-             // Fetch student details
             const userDocRef = doc(db, "users", studentId);
             const userDoc = await getDoc(userDocRef);
 
@@ -135,19 +133,17 @@ const TeacherAttendance = () => {
                     });
 
                     if (code) {
-                        // QR Code detected
                         if(selectedSubject) {
                             markAttendance(code.data, selectedSubject);
                         } else {
                             toast({ title: "Select a Subject", description: "Please select a subject before scanning.", variant: "destructive" });
                         }
-                        // Pause scanning for a bit to prevent multiple scans of the same code
                         setIsScanning(false); 
-                        setTimeout(() => { if(document.body) setIsScanning(true) }, 2000);
+                        setTimeout(() => { if(document.body.contains(videoRef.current)) setIsScanning(true) }, 2000);
                     }
                 }
             }
-            if (isScanning) {
+             if (isScanning) {
                animationFrameId = requestAnimationFrame(scanQrCode);
             }
         };
@@ -185,7 +181,9 @@ const TeacherAttendance = () => {
              cancelAnimationFrame(animationFrameId);
              if (videoRef.current && videoRef.current.srcObject) {
                 const stream = videoRef.current.srcObject as MediaStream;
-                stream.getTracks().forEach(track => track.stop());
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                }
             }
         };
     }, [isScanning, toast, selectedSubject]);
@@ -200,7 +198,6 @@ const TeacherAttendance = () => {
         toast({ title: 'Processing...', description: 'Finding absent students and marking their attendance.' });
 
         try {
-            // 1. Get all students for the subject's department and semester
             const studentsQuery = query(
                 collection(db, 'users'),
                 where('role', '==', 'Student'),
@@ -210,20 +207,16 @@ const TeacherAttendance = () => {
             const studentDocs = await getDocs(studentsQuery);
             const allStudents = studentDocs.docs.map(doc => ({ uid: doc.id, ...doc.data() } as Student));
 
-            // 2. Get today's date
             const today = new Date().toISOString().split('T')[0];
 
-            // 3. Find who is already marked present or absent today for this subject
             const presentStudentIds = presentStudents.map(s => s.id);
             const attendanceQuery = query(collection(db, 'attendance'), where('subject', '==', selectedSubject.name), where('date', '==', today));
             const attendanceDocs = await getDocs(attendanceQuery);
             const alreadyMarkedIds = attendanceDocs.docs.map(doc => doc.data().studentId);
             const allMarkedIds = [...new Set([...presentStudentIds, ...alreadyMarkedIds])];
 
-            // 4. Determine absent students
             const absentStudents = allStudents.filter(student => !allMarkedIds.includes(student.uid));
 
-            // 5. Create "Absent" records
             const promises = absentStudents.map(student => {
                 const attendanceRecord = {
                     studentId: student.uid,
@@ -332,8 +325,13 @@ const StudentAttendance = () => {
     const { app } = useFirebase();
     const db = getFirestore(app);
     
-    const attendanceQuery = user ? query(collection(db, 'attendance'), where('studentId', '==', user.uid), orderBy('createdAt', 'desc')) : null;
+    const attendanceQuery = user ? query(collection(db, 'attendance'), where('studentId', '==', user.uid)) : null;
     const { data: attendanceRecords, loading } = useCollection<AttendanceRecord>(attendanceQuery);
+
+    const sortedRecords = useMemo(() => {
+        if (!attendanceRecords) return [];
+        return [...attendanceRecords].sort((a, b) => b.createdAt.seconds - a.createdAt.seconds);
+    }, [attendanceRecords]);
 
     return (
         <div className="grid md:grid-cols-2 gap-6">
@@ -369,7 +367,7 @@ const StudentAttendance = () => {
                         </TableHeader>
                         <TableBody>
                             {loading && <TableRow><TableCell colSpan={3} className="text-center">Loading...</TableCell></TableRow>}
-                            {attendanceRecords && attendanceRecords.map((record) => (
+                            {sortedRecords && sortedRecords.map((record) => (
                                 <TableRow key={record.id}>
                                     <TableCell className="font-medium">{record.date}</TableCell>
                                     <TableCell>{record.subject}</TableCell>
@@ -380,7 +378,7 @@ const StudentAttendance = () => {
                                     </TableCell>
                                 </TableRow>
                             ))}
-                            {!loading && attendanceRecords?.length === 0 && (
+                            {!loading && sortedRecords?.length === 0 && (
                                 <TableRow>
                                     <TableCell colSpan={3} className="text-center text-muted-foreground">No attendance records found.</TableCell>
                                 </TableRow>
