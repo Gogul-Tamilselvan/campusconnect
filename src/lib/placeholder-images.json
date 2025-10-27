@@ -1,3 +1,52 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "avatar-1",
+      "description": "User avatar 1",
+      "imageUrl": "https://images.unsplash.com/photo-1540569014015-19a7be504e3a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjE1NDUzOTl8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person portrait"
+    },
+    {
+      "id": "avatar-2",
+      "description": "User avatar 2",
+      "imageUrl": "https://images.unsplash.com/photo-1590086782792-42dd2350140d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjE1NDUzOTl8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person portrait"
+    },
+    {
+      "id": "avatar-3",
+      "description": "User avatar 3",
+      "imageUrl": "https://images.unsplash.com/photo-1521119989659-a83eee488004?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8cGVyc29uJTIwcG9ydHJhaXR8ZW58MHx8fHwxNzYxNTQ1Mzk5fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person portrait"
+    },
+    {
+      "id": "blog-1",
+      "description": "Blog post image 1",
+      "imageUrl": "https://images.unsplash.com/photo-1632251141959-40b21a6c118c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8dGVjaG5vbG9neSUyMGNvZGV8ZW58MHx8fHwxNzYxNTQ4MDQyfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "technology code"
+    },
+    {
+      "id": "blog-2",
+      "description": "Blog post image 2",
+      "imageUrl": "https://images.unsplash.com/photo-1532094349884-543bc11b234d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxzY2llbmNlJTIwcmVzZWFyY2h8ZW58MHx8fHwxNzYxNDkxNzUzfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "science research"
+    },
+    {
+      "id": "blog-3",
+      "description": "Blog post image 3",
+      "imageUrl": "https://images.unsplash.com/photo-1455734729978-db1ae4f687fc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxjYW1wdXMlMjBsaWZlfGVufDB8fHx8MTc2MTU0ODA0MXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "campus life"
+    },
+    {
+      "id": "blog-4",
+      "description": "Blog post image 4",
+      "imageUrl": "https://images.unsplash.com/photo-1643321444939-ce662d82051e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxzdHVkZW50JTIwZXZlbnR8ZW58MHx8fHwxNzYxNTQ4MDQxfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "student event"
+    },
+    {
+      "id": "qr-code",
+      "description": "Sample QR code",
+      "imageUrl": "https://images.unsplash.com/photo-1595079676339-1534801ad6cf?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxxciUyMGNvZGV8ZW58MHx8fHwxNzYxNTE1NDc1fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "qr code"
+    }
+  ]
 }
