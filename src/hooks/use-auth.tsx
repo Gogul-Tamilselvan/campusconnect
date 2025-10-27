@@ -1,12 +1,12 @@
 'use client';
 
-import type { User, UserRole } from '@/lib/types';
+import type { User } from '@/lib/types';
 import { createContext, useContext } from 'react';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (role: UserRole) => void;
+  login: (username: string, password?: string) => void;
   logout: () => void;
 }
 

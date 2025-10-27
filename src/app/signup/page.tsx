@@ -7,24 +7,24 @@ import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
-import type { UserRole } from '@/lib/types';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
 
 export default function SignupPage() {
-  const [role, setRole] = useState<UserRole | ''>('');
   const { login } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
 
   const handleSignup = () => {
-    if (role) {
-      // In a real app, this would be a registration API call.
-      // For this mock app, we'll just log in the user.
-      login(role as UserRole);
-      router.push('/dashboard');
-    }
+    // In a real app, this would be a registration API call.
+    // For this mock app, we'll show a success message and redirect.
+    toast({
+        title: 'Signup Successful',
+        description: "You can now log in with the default credentials.",
+    });
+    router.push('/login');
   };
 
   return (
@@ -60,19 +60,7 @@ export default function SignupPage() {
                     <Input id="password" type="password" placeholder="Create a password" className="pl-9" />
                 </div>
             </div>
-            <div className="space-y-2">
-              <Label>Role</Label>
-              <Select onValueChange={(value) => setRole(value as UserRole)} value={role}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select your role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Student">Student</SelectItem>
-                  <SelectItem value="Teacher">Teacher</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button onClick={handleSignup} disabled={!role} className="w-full">
+            <Button onClick={handleSignup} className="w-full">
               Sign Up
             </Button>
              <div className="mt-4 text-center text-sm">

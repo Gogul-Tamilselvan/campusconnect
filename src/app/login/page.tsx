@@ -7,21 +7,28 @@ import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
-import type { UserRole } from '@/lib/types';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage() {
-  const [role, setRole] = useState<UserRole | ''>('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const { login } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
 
   const handleLogin = () => {
-    if (role) {
-      login(role as UserRole);
+    try {
+      login(username, password);
       router.push('/dashboard');
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Login Failed',
+        description: error.message,
+      });
     }
   };
 
@@ -33,7 +40,7 @@ export default function LoginPage() {
             <GraduationCap className="h-12 w-12 text-primary" />
           </div>
           <CardTitle className="text-2xl font-bold">CampusConnect</CardTitle>
-          <CardDescription>Welcome back! Please select your role to sign in.</CardDescription>
+          <CardDescription>Welcome back! Please sign in to your account.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -41,30 +48,17 @@ export default function LoginPage() {
                 <Label htmlFor="username">Username</Label>
                 <div className="relative">
                     <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="username" placeholder="Enter your username" className="pl-9" />
+                    <Input id="username" placeholder="e.g. student" className="pl-9" value={username} onChange={(e) => setUsername(e.target.value)} />
                 </div>
             </div>
             <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <div className="relative">
                     <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="password" type="password" placeholder="Enter your password" className="pl-9" />
+                    <Input id="password" type="password" placeholder="e.g. password" className="pl-9" value={password} onChange={(e) => setPassword(e.target.value)} />
                 </div>
             </div>
-            <div className="space-y-2">
-              <Label>Role</Label>
-              <Select onValueChange={(value) => setRole(value as UserRole)} value={role}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select your role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Student">Student</SelectItem>
-                  <SelectItem value="Teacher">Teacher</SelectItem>
-                  <SelectItem value="Admin">Admin</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button onClick={handleLogin} disabled={!role} className="w-full">
+            <Button onClick={handleLogin} className="w-full" disabled={!username || !password}>
               Sign In
             </Button>
              <div className="mt-4 text-center text-sm">

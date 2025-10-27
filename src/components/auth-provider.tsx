@@ -4,12 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { AuthContext } from '@/hooks/use-auth';
 import type { User, UserRole } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-
-const MOCK_USERS: Record<UserRole, User> = {
-  Admin: { name: 'Admin User', role: 'Admin', avatarUrl: PlaceHolderImages.find(img => img.id === 'avatar-1')?.imageUrl || '' },
-  Teacher: { name: 'Teacher User', role: 'Teacher', avatarUrl: PlaceHolderImages.find(img => img.id === 'avatar-2')?.imageUrl || '' },
-  Student: { name: 'Student User', role: 'Student', avatarUrl: PlaceHolderImages.find(img => img.id === 'avatar-3')?.imageUrl || '' },
-};
+import { MOCK_USERS } from '@/lib/mock-data';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -20,8 +15,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   }, []);
 
-  const login = (role: UserRole) => {
-    setUser(MOCK_USERS[role]);
+  const login = (username: string, password?: string) => {
+    const foundUser = MOCK_USERS.find(u => u.username.toLowerCase() === username.toLowerCase());
+
+    if (foundUser && (!password || foundUser.password === password)) {
+        setUser(foundUser);
+    } else {
+        throw new Error('Invalid username or password.');
+    }
   };
 
   const logout = () => {

@@ -50,6 +50,31 @@ export type Event = {
 };
 
 
+export const MOCK_USERS = [
+  {
+    username: 'student',
+    password: 'password',
+    name: 'Student User',
+    role: 'Student' as const,
+    avatarUrl: PlaceHolderImages.find(i => i.id === 'avatar-1')?.imageUrl ?? '/default-avatar.png'
+  },
+  {
+    username: 'teacher',
+    password: 'password',
+    name: 'Teacher User',
+    role: 'Teacher' as const,
+    avatarUrl: PlaceHolderImages.find(i => i.id === 'avatar-2')?.imageUrl ?? '/default-avatar.png'
+  },
+  {
+    username: 'admin',
+    password: 'password',
+    name: 'Admin User',
+    role: 'Admin' as const,
+    avatarUrl: PlaceHolderImages.find(i => i.id === 'avatar-3')?.imageUrl ?? '/default-avatar.png'
+  },
+];
+
+
 export const timetableData = {
     'Computer Science': {
       '1st Semester': [
