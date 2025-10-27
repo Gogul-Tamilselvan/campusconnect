@@ -5,21 +5,153 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useFirebase } from '@/firebase';
-import { getFirestore, collection } from 'firebase/firestore';
+import { getFirestore, collection, doc, updateDoc, query, orderBy } from 'firebase/firestore';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { User } from '@/lib/types';
-import { Shield, User as UserIcon } from 'lucide-react';
+import { User, UserRole } from '@/lib/types';
+import { Shield, User as UserIcon, Edit } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
+
+const EditUserDialog = ({ user, open, onOpenChange, onUserUpdate }: { user: User | null, open: boolean, onOpenChange: (open: boolean) => void, onUserUpdate: () => void }) => {
+    const { toast } = useToast();
+    const { app } = useFirebase();
+    const db = getFirestore(app);
+    const [name, setName] = useState('');
+    const [role, setRole] = useState<UserRole>('Student');
+    const [department, setDepartment] = useState('');
+    const [semester, setSemester] = useState('');
+
+    const departmentsQuery = query(collection(db, 'departments'), orderBy('name', 'asc'));
+    const { data: departments, loading: departmentsLoading } = useCollection<{id:string, name:string}>(departmentsQuery);
+
+    const semestersQuery = query(collection(db, 'semesters'), orderBy('name', 'asc'));
+    const { data: semesters, loading: semestersLoading } = useCollection<{id:string, name:string}>(semestersQuery);
+    
+    useState(() => {
+        if (user) {
+            setName(user.name);
+            setRole(user.role);
+            setDepartment(user.department || '');
+            setSemester(user.semester || '');
+        }
+    });
+
+    // Effect to update form state when the selected user changes
+    useState(() => {
+        if (user) {
+            setName(user.name);
+            setRole(user.role);
+            setDepartment(user.department || '');
+            setSemester(user.semester || '');
+        }
+    });
+
+
+    const handleUpdate = async () => {
+        if (!user) return;
+
+        const userDocRef = doc(db, 'users', user.uid);
+        const dataToUpdate: Partial<User> = {
+            name,
+            role,
+            department,
+            semester,
+        };
+
+        try {
+            await updateDoc(userDocRef, dataToUpdate);
+            toast({ title: 'Success', description: 'User updated successfully.' });
+            onUserUpdate();
+            onOpenChange(false);
+        } catch (error) {
+            toast({ title: 'Error', description: 'Failed to update user.', variant: 'destructive' });
+        }
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Edit User: {user?.name}</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="name">Name</Label>
+                        <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="role">Role</Label>
+                        <Select value={role} onValueChange={(value) => setRole(value as UserRole)}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select role" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Student">Student</SelectItem>
+                                <SelectItem value="Teacher">Teacher</SelectItem>
+                                <SelectItem value="Admin">Admin</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                     {role === 'Student' && (
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Department</Label>
+                                <Select onValueChange={setDepartment} value={department}>
+                                    <SelectTrigger><SelectValue placeholder="Select Department" /></SelectTrigger>
+                                    <SelectContent>
+                                        {departmentsLoading ? <SelectItem value="loading" disabled>Loading...</SelectItem> : 
+                                        departments?.map(d => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)
+                                        }
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Semester</Label>
+                                <Select onValueChange={setSemester} value={semester}>
+                                    <SelectTrigger><SelectValue placeholder="Select Semester" /></SelectTrigger>
+                                    <SelectContent>
+                                        {semestersLoading ? <SelectItem value="loading" disabled>Loading...</SelectItem> :
+                                            semesters?.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)
+                                        }
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    )}
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button onClick={handleUpdate}>Save Changes</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
 
 export default function ManageUsersPage() {
     const { user } = useAuth();
     const { app } = useFirebase();
     const db = getFirestore(app);
     const usersQuery = collection(db, 'users');
-    const { data: users, loading } = useCollection<User>(usersQuery);
+    const { data: users, loading, refetch: refetchUsers } = useCollection<User>(usersQuery);
+
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
     if (user?.role !== 'Admin') {
         return <p>You do not have permission to view this page.</p>;
     }
+
+    const handleEditClick = (userToEdit: User) => {
+        setSelectedUser(userToEdit);
+        setIsEditDialogOpen(true);
+    };
 
     const getRoleIcon = (role: string) => {
         switch(role) {
@@ -31,46 +163,60 @@ export default function ManageUsersPage() {
 
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>User Management</CardTitle>
-                <CardDescription>View and manage all users in the system.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>User</TableHead>
-                            <TableHead>Email</TableHead>
-                            <TableHead>Role</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {loading && <TableRow><TableCell colSpan={3} className="text-center">Loading users...</TableCell></TableRow>}
-                        {users && users.map(u => (
-                            <TableRow key={u.id}>
-                                <TableCell>
-                                    <div className="flex items-center gap-3">
-                                        <Avatar>
-                                            <AvatarImage src={u.avatarUrl} alt={u.name} />
-                                            <AvatarFallback>{u.name.charAt(0)}</AvatarFallback>
-
-                                        </Avatar>
-                                        <span className="font-medium">{u.name}</span>
-                                    </div>
-                                </TableCell>
-                                <TableCell>{u.email}</TableCell>
-                                <TableCell>
-                                     <Badge variant="outline" className="flex items-center gap-2">
-                                        {getRoleIcon(u.role)}
-                                        {u.role}
-                                     </Badge>
-                                </TableCell>
+        <>
+            <Card>
+                <CardHeader>
+                    <CardTitle>User Management</CardTitle>
+                    <CardDescription>View and manage all users in the system.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>User</TableHead>
+                                <TableHead>Email</TableHead>
+                                <TableHead>Role</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
+                        </TableHeader>
+                        <TableBody>
+                            {loading && <TableRow><TableCell colSpan={4} className="text-center">Loading users...</TableCell></TableRow>}
+                            {users && users.map(u => (
+                                <TableRow key={u.id}>
+                                    <TableCell>
+                                        <div className="flex items-center gap-3">
+                                            <Avatar>
+                                                <AvatarImage src={u.avatarUrl} alt={u.name} />
+                                                <AvatarFallback>{u.name.charAt(0)}</AvatarFallback>
+
+                                            </Avatar>
+                                            <span className="font-medium">{u.name}</span>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>{u.email}</TableCell>
+                                    <TableCell>
+                                        <Badge variant="outline" className="flex items-center gap-2 w-fit">
+                                            {getRoleIcon(u.role)}
+                                            {u.role}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <Button variant="ghost" size="icon" onClick={() => handleEditClick(u)}>
+                                            <Edit className="h-4 w-4" />
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+            <EditUserDialog 
+                user={selectedUser} 
+                open={isEditDialogOpen} 
+                onOpenChange={setIsEditDialogOpen} 
+                onUserUpdate={refetchUsers}
+            />
+        </>
     );
 }
