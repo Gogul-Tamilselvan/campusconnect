@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 const EditUserDialog = ({ user, open, onOpenChange, onUserUpdate }: { user: User | null, open: boolean, onOpenChange: (open: boolean) => void, onUserUpdate: () => void }) => {
@@ -32,24 +32,14 @@ const EditUserDialog = ({ user, open, onOpenChange, onUserUpdate }: { user: User
     const semestersQuery = query(collection(db, 'semesters'), orderBy('name', 'asc'));
     const { data: semesters, loading: semestersLoading } = useCollection<{id:string, name:string}>(semestersQuery);
     
-    useState(() => {
+    useEffect(() => {
         if (user) {
             setName(user.name);
             setRole(user.role);
             setDepartment(user.department || '');
             setSemester(user.semester || '');
         }
-    });
-
-    // Effect to update form state when the selected user changes
-    useState(() => {
-        if (user) {
-            setName(user.name);
-            setRole(user.role);
-            setDepartment(user.department || '');
-            setSemester(user.semester || '');
-        }
-    });
+    }, [user]);
 
 
     const handleUpdate = async () => {
@@ -59,12 +49,18 @@ const EditUserDialog = ({ user, open, onOpenChange, onUserUpdate }: { user: User
         const dataToUpdate: Partial<User> = {
             name,
             role,
-            department,
-            semester,
         };
+        
+        if (role === 'Student') {
+            dataToUpdate.department = department;
+            dataToUpdate.semester = semester;
+        } else {
+            dataToUpdate.department = '';
+            dataToUpdate.semester = '';
+        }
 
         try {
-            await updateDoc(userDocRef, dataToUpdate);
+            await updateDoc(userDocRef, dataToUpdate as any);
             toast({ title: 'Success', description: 'User updated successfully.' });
             onUserUpdate();
             onOpenChange(false);
