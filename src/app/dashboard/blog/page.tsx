@@ -26,6 +26,7 @@ type BlogPost = {
   date: any;
   status: 'Published' | 'Pending';
   slug: string;
+  createdAt: any;
 };
 
 const NewPostForm = () => {
@@ -104,8 +105,10 @@ const AdminBlogApproval = () => {
     const { app } = useFirebase();
     const db = getFirestore(app);
     const { toast } = useToast();
-    const pendingPostsQuery = query(collection(db, 'blogPosts'), where('status', '==', 'Pending'), orderBy('createdAt', 'desc'));
-    const { data: pendingPosts, loading } = useCollection<BlogPost>(pendingPostsQuery);
+    const allPostsQuery = query(collection(db, 'blogPosts'), orderBy('createdAt', 'desc'));
+    const { data: allPosts, loading } = useCollection<BlogPost>(allPostsQuery);
+
+    const pendingPosts = allPosts?.filter(post => post.status === 'Pending');
 
     const handleApprove = async (id: string) => {
         const postRef = doc(db, 'blogPosts', id);
@@ -170,8 +173,10 @@ export default function BlogPage() {
     const { app } = useFirebase();
     const db = getFirestore(app);
 
-    const publishedPostsQuery = query(collection(db, 'blogPosts'), where('status', '==', 'Published'), orderBy('createdAt', 'desc'));
-    const { data: publishedPosts, loading } = useCollection<BlogPost>(publishedPostsQuery);
+    const allPostsQuery = query(collection(db, 'blogPosts'), orderBy('createdAt', 'desc'));
+    const { data: allPosts, loading } = useCollection<BlogPost>(allPostsQuery);
+    
+    const publishedPosts = allPosts?.filter(post => post.status === 'Published');
 
     const formatDate = (timestamp: any) => {
         if (!timestamp) return 'Just now';
