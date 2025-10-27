@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { GraduationCap, KeyRound, User as UserIcon } from 'lucide-react';
+import { GraduationCap, KeyRound, User as UserIcon, Mail } from 'lucide-react';
 import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
@@ -13,13 +13,15 @@ import type { UserRole } from '@/lib/types';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 
-export default function LoginPage() {
+export default function SignupPage() {
   const [role, setRole] = useState<UserRole | ''>('');
   const { login } = useAuth();
   const router = useRouter();
 
-  const handleLogin = () => {
+  const handleSignup = () => {
     if (role) {
+      // In a real app, this would be a registration API call.
+      // For this mock app, we'll just log in the user.
       login(role as UserRole);
       router.push('/dashboard');
     }
@@ -32,8 +34,8 @@ export default function LoginPage() {
           <div className="mb-4 flex justify-center">
             <GraduationCap className="h-12 w-12 text-primary" />
           </div>
-          <CardTitle className="text-2xl font-bold">CampusConnect</CardTitle>
-          <CardDescription>Welcome back! Please select your role to sign in.</CardDescription>
+          <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
+          <CardDescription>Join CampusConnect today! Fill out the form to get started.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -41,14 +43,21 @@ export default function LoginPage() {
                 <Label htmlFor="username">Username</Label>
                 <div className="relative">
                     <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="username" placeholder="Enter your username" className="pl-9" />
+                    <Input id="username" placeholder="Choose a username" className="pl-9" />
+                </div>
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input id="email" type="email" placeholder="Enter your email" className="pl-9" />
                 </div>
             </div>
             <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <div className="relative">
                     <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="password" type="password" placeholder="Enter your password" className="pl-9" />
+                    <Input id="password" type="password" placeholder="Create a password" className="pl-9" />
                 </div>
             </div>
             <div className="space-y-2">
@@ -60,17 +69,16 @@ export default function LoginPage() {
                 <SelectContent>
                   <SelectItem value="Student">Student</SelectItem>
                   <SelectItem value="Teacher">Teacher</SelectItem>
-                  <SelectItem value="Admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={handleLogin} disabled={!role} className="w-full">
-              Sign In
+            <Button onClick={handleSignup} disabled={!role} className="w-full">
+              Sign Up
             </Button>
              <div className="mt-4 text-center text-sm">
-                Don&apos;t have an account?{' '}
-                <Link href="/signup" className="underline">
-                    Sign up
+                Already have an account?{' '}
+                <Link href="/login" className="underline">
+                    Sign in
                 </Link>
             </div>
           </div>
