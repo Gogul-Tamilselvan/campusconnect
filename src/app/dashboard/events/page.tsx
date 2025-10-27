@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { FormState, getEventSuggestions } from './actions';
 import { useEffect, useRef, useState } from 'react';
 import { Wand2, PlusCircle, ExternalLink } from 'lucide-react';
-import { events as mockEvents } from '@/lib/mock-data';
+import { events as mockEvents, type Event } from '@/lib/mock-data';
 import { useToast } from '@/hooks/use-toast';
 
 function SubmitButton() {
@@ -28,17 +28,57 @@ export default function EventsPage() {
   const [formState, formAction] = useFormState(getEventSuggestions, initialState);
   const { toast } = useToast();
   const formRef = useRef<HTMLFormElement>(null);
+  
+  const [events, setEvents] = useState(mockEvents);
+  const [eventName, setEventName] = useState('');
   const [suggestedDescription, setSuggestedDescription] = useState('');
+  const [suggestedCategory, setSuggestedCategory] = useState('');
 
   useEffect(() => {
     if(formState?.message && formState.suggestions) {
         toast({ title: 'Suggestions Ready', description: formState.message });
         setSuggestedDescription(formState.suggestions.description);
+        if (formState.suggestions.categories.length > 0) {
+          setSuggestedCategory(formState.suggestions.categories[0]);
+        }
+        if(formState.fields?.eventName) {
+            setEventName(formState.fields.eventName);
+        }
     } else if (formState?.message && !formState.suggestions) {
         toast({ title: 'Error', description: formState.message, variant: 'destructive' });
     }
   }, [formState, toast]);
 
+  const handleAddEvent = () => {
+    if (!eventName || !suggestedDescription || !suggestedCategory) {
+      toast({
+        title: 'Missing Information',
+        description: 'Please generate suggestions and ensure event name, description, and category are filled.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const newEvent: Event = {
+      id: events.length + 1,
+      name: eventName,
+      description: suggestedDescription,
+      category: suggestedCategory,
+      date: new Date().toISOString().split('T')[0], // Using today's date for simplicity
+    };
+
+    setEvents([newEvent, ...events]);
+    toast({
+      title: 'Event Created',
+      description: `${eventName} has been added to the calendar.`,
+    });
+
+    // Reset form
+    setEventName('');
+    setSuggestedDescription('');
+    setSuggestedCategory('');
+    formRef.current?.reset();
+  };
 
   return (
     <div className="grid gap-8 lg:grid-cols-3">
@@ -56,7 +96,8 @@ export default function EventsPage() {
                   id="eventName"
                   name="eventName"
                   placeholder="e.g., Annual Tech Fest"
-                  defaultValue={formState?.fields?.eventName}
+                  value={eventName}
+                  onChange={(e) => setEventName(e.target.value)}
                   required
                 />
                  {formState?.issues && <p className="text-sm text-destructive">{formState.issues[0]}</p>}
@@ -77,7 +118,7 @@ export default function EventsPage() {
                     <Label>Suggested Categories</Label>
                     <div className="flex flex-wrap gap-2 pt-2">
                       {formState.suggestions.categories.map((cat, i) => (
-                        <Badge key={i} variant="secondary">{cat}</Badge>
+                        <Badge key={i} variant={suggestedCategory === cat ? 'default' : 'secondary'} onClick={() => setSuggestedCategory(cat)} className="cursor-pointer">{cat}</Badge>
                       ))}
                     </div>
                   </div>
@@ -96,7 +137,7 @@ export default function EventsPage() {
             </CardContent>
             <CardFooter className="flex justify-between">
               <SubmitButton />
-              <Button variant="default">
+              <Button variant="default" type="button" onClick={handleAddEvent}>
                 <PlusCircle className="mr-2 h-4 w-4" /> Add Event
               </Button>
             </CardFooter>
@@ -110,7 +151,7 @@ export default function EventsPage() {
                 <CardDescription>Here are the scheduled events for the campus.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                {mockEvents.map(event => (
+                {events.map(event => (
                     <div key={event.id} className="p-4 border rounded-lg flex items-start justify-between">
                         <div>
                             <Badge variant="outline" className="mb-2">{event.category}</Badge>

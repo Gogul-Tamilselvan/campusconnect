@@ -5,19 +5,64 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { attendanceRecords } from '@/lib/mock-data';
 import { Badge } from '@/components/ui/badge';
 import { Camera } from 'lucide-react';
-import { toast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const TeacherAttendance = () => {
-    const handleScan = () => {
-        toast({
-            title: "Scanner Activated",
-            description: "Ready to scan student QR codes.",
-        });
+    const { toast } = useToast();
+    const [isScanning, setIsScanning] = useState(false);
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+
+    useEffect(() => {
+        if (isScanning) {
+            const getCameraPermission = async () => {
+              try {
+                const stream = await navigator.mediaDevices.getUserMedia({video: true});
+                setHasCameraPermission(true);
+        
+                if (videoRef.current) {
+                  videoRef.current.srcObject = stream;
+                }
+              } catch (error) {
+                console.error('Error accessing camera:', error);
+                setHasCameraPermission(false);
+                toast({
+                  variant: 'destructive',
+                  title: 'Camera Access Denied',
+                  description: 'Please enable camera permissions in your browser settings to use this feature.',
+                });
+                setIsScanning(false);
+              }
+            };
+        
+            getCameraPermission();
+
+            return () => {
+                // Stop camera stream when component unmounts or scanning stops
+                if (videoRef.current && videoRef.current.srcObject) {
+                    const stream = videoRef.current.srcObject as MediaStream;
+                    stream.getTracks().forEach(track => track.stop());
+                }
+            }
+        }
+      }, [isScanning, toast]);
+
+    const handleScanClick = () => {
+        if (isScanning) {
+            setIsScanning(false);
+        } else {
+            setIsScanning(true);
+            toast({
+                title: "Scanner Activated",
+                description: "Ready to scan student QR codes.",
+            });
+        }
     }
     return (
         <Card>
@@ -37,11 +82,24 @@ const TeacherAttendance = () => {
                             <SelectItem value="dbms">Database Systems</SelectItem>
                         </SelectContent>
                     </Select>
-                    <Button onClick={handleScan}>
+                    <Button onClick={handleScanClick}>
                         <Camera className="mr-2 h-4 w-4" />
-                        Scan QR Code
+                        {isScanning ? 'Stop Scanner' : 'Scan QR Code'}
                     </Button>
                 </div>
+                {isScanning && (
+                    <div className='mt-4'>
+                        <video ref={videoRef} className="w-full aspect-video rounded-md bg-muted" autoPlay muted />
+                        {hasCameraPermission === false && (
+                            <Alert variant="destructive" className="mt-4">
+                                <AlertTitle>Camera Access Required</AlertTitle>
+                                <AlertDescription>
+                                Please allow camera access in your browser settings to use this feature.
+                                </AlertDescription>
+                            </Alert>
+                        )}
+                    </div>
+                )}
                 <div className="mt-6 border-t pt-4">
                     <h3 className="font-semibold mb-2">Today's Attendance: Data Structures</h3>
                     <p className="text-sm text-muted-foreground">32/40 students present.</p>

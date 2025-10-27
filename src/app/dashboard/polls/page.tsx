@@ -7,59 +7,92 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { polls, type Poll } from '@/lib/mock-data';
-import { CheckSquare, PlusCircle } from 'lucide-react';
+import { polls as mockPolls, type Poll, type PollOption } from '@/lib/mock-data';
+import { CheckSquare, PlusCircle, Trash2 } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useState } from 'react';
 import { Progress } from '@/components/ui/progress';
+import { useToast } from '@/hooks/use-toast';
 
-const CreatePollForm = () => (
-    <Dialog>
-        <DialogTrigger asChild>
-            <Button>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Create New Poll
-            </Button>
-        </DialogTrigger>
-        <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-                <DialogTitle>Create a new poll</DialogTitle>
-                <DialogDescription>
-                    Fill in the details below to create a poll for students.
-                </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="question" className="text-right">
-                        Question
-                    </Label>
-                    <Input id="question" placeholder="e.g., Best time for extra class?" className="col-span-3" />
+const CreatePollForm = ({ onAddPoll }: { onAddPoll: (poll: Omit<Poll, 'id' | 'author' | 'date'>) => void }) => {
+    const [open, setOpen] = useState(false);
+    const [question, setQuestion] = useState('');
+    const [options, setOptions] = useState(['', '']);
+    const { toast } = useToast();
+
+    const handleOptionChange = (index: number, value: string) => {
+        const newOptions = [...options];
+        newOptions[index] = value;
+        setOptions(newOptions);
+    };
+
+    const addOption = () => {
+        setOptions([...options, '']);
+    };
+
+    const removeOption = (index: number) => {
+        if (options.length > 2) {
+            const newOptions = options.filter((_, i) => i !== index);
+            setOptions(newOptions);
+        }
+    };
+
+    const handleSubmit = () => {
+        if (question && options.every(opt => opt)) {
+            const newPollOptions: PollOption[] = options.map((opt, index) => ({ id: index + 1, text: opt, votes: 0 }));
+            onAddPoll({ question, options: newPollOptions });
+            toast({ title: 'Success', description: 'Poll created successfully.' });
+            setOpen(false);
+            setQuestion('');
+            setOptions(['', '']);
+        } else {
+            toast({ title: 'Error', description: 'Please fill out the question and all option fields.', variant: 'destructive' });
+        }
+    };
+
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Create New Poll
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Create a new poll</DialogTitle>
+                    <DialogDescription>
+                        Fill in the details below to create a poll for students.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="question">Question</Label>
+                        <Input id="question" placeholder="e.g., Best time for extra class?" value={question} onChange={e => setQuestion(e.target.value)} />
+                    </div>
+                    {options.map((option, index) => (
+                        <div key={index} className="space-y-2">
+                            <Label htmlFor={`option${index + 1}`}>Option {index + 1}</Label>
+                            <div className='flex items-center gap-2'>
+                                <Input id={`option${index + 1}`} value={option} onChange={e => handleOptionChange(index, e.target.value)} placeholder={`e.g., Option ${index + 1}`} />
+                                {options.length > 2 && <Button variant="ghost" size="icon" onClick={() => removeOption(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
+                            </div>
+                        </div>
+                    ))}
+
+                    <Button variant="outline" onClick={addOption}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Add Option
+                    </Button>
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="option1" className="text-right">
-                        Option 1
-                    </Label>
-                    <Input id="option1" placeholder="e.g., Saturday 10 AM" className="col-span-3" />
-                </div>
-                 <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="option2" className="text-right">
-                        Option 2
-                    </Label>
-                    <Input id="option2" placeholder="e.g., Sunday 2 PM" className="col-span-3" />
-                </div>
-                 <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="option3" className="text-right">
-                        Option 3
-                    </Label>
-                    <Input id="option3" placeholder="e.g., Weekday evening" className="col-span-3" />
-                </div>
-            </div>
-            <DialogFooter>
-                <Button type="submit">Create Poll</Button>
-            </DialogFooter>
-        </DialogContent>
-    </Dialog>
-);
+                <DialogFooter>
+                    <Button type="button" onClick={handleSubmit}>Create Poll</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
 
 const PollResults = ({ poll }: { poll: Poll }) => {
     const totalVotes = poll.options.reduce((sum, option) => sum + option.votes, 0);
@@ -67,12 +100,12 @@ const PollResults = ({ poll }: { poll: Poll }) => {
     return (
         <div className="space-y-2">
             {poll.options.map(option => {
-                const percentage = totalVotes > 0 ? (option.votes / totalVotes) * 100 : 0;
+                const percentage = totalVotes > 0 ? Math.round((option.votes / totalVotes) * 100) : 0;
                 return (
                     <div key={option.id}>
                         <div className="flex justify-between text-sm mb-1">
                             <span>{option.text}</span>
-                            <span>{option.votes} votes</span>
+                            <span>{option.votes} votes ({percentage}%)</span>
                         </div>
                         <Progress value={percentage} />
                     </div>
@@ -83,7 +116,7 @@ const PollResults = ({ poll }: { poll: Poll }) => {
 };
 
 
-const PollCard = ({ poll, role }: { poll: Poll, role: 'Student' | 'Teacher' | 'Admin' }) => {
+const PollCard = ({ poll, role, onVote }: { poll: Poll, role: 'Student' | 'Teacher' | 'Admin', onVote: (pollId: number, optionId: number) => void }) => {
     const [selectedOption, setSelectedOption] = useState<string | undefined>();
     const [voted, setVoted] = useState(false);
 
@@ -93,7 +126,7 @@ const PollCard = ({ poll, role }: { poll: Poll, role: 'Student' | 'Teacher' | 'A
     const handleVote = () => {
         if (selectedOption) {
             setVoted(true);
-            // In a real app, you would submit this vote to the backend
+            onVote(poll.id, parseInt(selectedOption, 10));
         }
     }
 
@@ -110,8 +143,8 @@ const PollCard = ({ poll, role }: { poll: Poll, role: 'Student' | 'Teacher' | 'A
                     <RadioGroup value={selectedOption} onValueChange={setSelectedOption}>
                         {poll.options.map(option => (
                             <div key={option.id} className="flex items-center space-x-2">
-                                <RadioGroupItem value={String(option.id)} id={String(option.id)} />
-                                <Label htmlFor={String(option.id)}>{option.text}</Label>
+                                <RadioGroupItem value={String(option.id)} id={`${poll.id}-${option.id}`} />
+                                <Label htmlFor={`${poll.id}-${option.id}`}>{option.text}</Label>
                             </div>
                         ))}
                     </RadioGroup>
@@ -128,19 +161,45 @@ const PollCard = ({ poll, role }: { poll: Poll, role: 'Student' | 'Teacher' | 'A
 
 export default function PollsPage() {
     const { user } = useAuth();
+    const [polls, setPolls] = useState(mockPolls);
     const canCreate = user?.role === 'Teacher' || user?.role === 'Admin';
     
+    const handleAddPoll = (newPoll: Omit<Poll, 'id' | 'author' | 'date'>) => {
+        const pollToAdd: Poll = {
+            ...newPoll,
+            id: polls.length + 1,
+            author: user?.name || 'User',
+            date: new Date().toISOString().split('T')[0],
+        };
+        setPolls([pollToAdd, ...polls]);
+    };
+
+    const handleVote = (pollId: number, optionId: number) => {
+        setPolls(polls.map(p => {
+            if (p.id === pollId) {
+                const newOptions = p.options.map(opt => {
+                    if (opt.id === optionId) {
+                        return { ...opt, votes: opt.votes + 1 };
+                    }
+                    return opt;
+                });
+                return { ...p, options: newOptions };
+            }
+            return p;
+        }));
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-bold">Polls & Surveys</h1>
-                {canCreate && <CreatePollForm />}
+                {canCreate && <CreatePollForm onAddPoll={handleAddPoll} />}
             </div>
 
             {polls.length > 0 ? (
                 <div className="grid gap-6 md:grid-cols-2">
                     {polls.map(poll => (
-                       <PollCard key={poll.id} poll={poll} role={user!.role} />
+                       <PollCard key={poll.id} poll={poll} role={user!.role} onVote={handleVote} />
                     ))}
                 </div>
             ) : (
