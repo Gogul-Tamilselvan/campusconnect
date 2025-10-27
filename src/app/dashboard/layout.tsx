@@ -69,6 +69,8 @@ const pageTitles: { [key: string]: string } = {
   '/dashboard/events': 'Events Calendar',
   '/dashboard/users': 'User Management',
   '/dashboard/polls': 'Polls & Surveys',
+  '/dashboard/profile': 'My Profile',
+  '/dashboard/settings': 'Settings',
 };
 
 
