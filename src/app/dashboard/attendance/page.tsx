@@ -70,12 +70,29 @@ const TeacherAttendance = () => {
     const markAttendance = async (studentId: string, subject: Subject) => {
         if (!studentId || !subject) return;
 
+        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+        // Check local state first for quick feedback
         if (presentStudents.some(p => p.id === studentId)) {
-            toast({ title: "Already Marked", description: "This student's attendance has already been recorded.", variant: "default" });
+            toast({ title: "Already Marked", description: "This student's attendance has already been recorded for this session.", variant: "default" });
             return;
         }
 
         try {
+            // Check Firestore for an existing record for this student, subject, and date
+            const attendanceQuery = query(
+                collection(db, 'attendance'),
+                where('studentId', '==', studentId),
+                where('subject', '==', subject.name),
+                where('date', '==', today)
+            );
+
+            const querySnapshot = await getDocs(attendanceQuery);
+            if (!querySnapshot.empty) {
+                toast({ title: "Already Marked", description: "This student's attendance was already recorded today.", variant: "default" });
+                return;
+            }
+
             const userDocRef = doc(db, "users", studentId);
             const userDoc = await getDoc(userDocRef);
 
@@ -91,7 +108,7 @@ const TeacherAttendance = () => {
                 studentId: studentId,
                 subject: subject.name,
                 status: 'Present',
-                date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
+                date: today,
                 createdAt: serverTimestamp(),
             };
 
