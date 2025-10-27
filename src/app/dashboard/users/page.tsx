@@ -44,13 +44,13 @@ const EditUserDialog = ({ user, open, onOpenChange, onUserUpdate }: { user: User
 
 
     const handleUpdate = async () => {
-        if (!user || !user.uid) {
+        if (!user || !user.id) {
              toast({ title: 'Error', description: 'Cannot update user without a valid ID.', variant: 'destructive' });
              return;
         };
         setIsSaving(true);
 
-        const userDocRef = doc(db, 'users', user.uid);
+        const userDocRef = doc(db, 'users', user.id);
         const dataToUpdate: Partial<User> = {
             name,
             role,
@@ -148,7 +148,6 @@ export default function ManageUsersPage() {
     const { user: currentUser } = useAuth();
     const { app } = useFirebase();
     const db = getFirestore(app);
-    // Correctly query all users without any filters.
     const usersQuery = query(collection(db, 'users'), orderBy('name', 'asc'));
     const { data: users, loading, refetch: refetchUsers } = useCollection<User>(usersQuery);
 
