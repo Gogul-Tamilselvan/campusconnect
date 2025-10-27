@@ -145,13 +145,12 @@ export default function TimetablePage() {
     const isAdmin = user?.role === 'Admin';
     const { app } = useFirebase();
     const db = getFirestore(app);
-    const timetableQuery = query(collection(db, 'timetables'), orderBy('createdAt', 'asc'));
-    const {data, loading} = useCollection<TimetableEntry>(timetableQuery);
+    const timetableQuery = query(collection(db, 'timetables'), orderBy('createdAt', 'desc'));
+    const {data: timetableData, loading} = useCollection<TimetableEntry>(timetableQuery);
     
-    // In a real app, you'd filter based on user's department/semester
-    const semester = '3rd Semester';
-    const department = 'Computer Science';
-    const timetableData = data?.filter(d => d.department === department && d.semester === semester) || [];
+    // In a real app, you might want to filter this based on user's role or selections
+    const department = user?.department || 'All Departments';
+    const semester = user?.semester || 'All Semesters';
 
     return (
         <div className="space-y-6">
@@ -162,9 +161,9 @@ export default function TimetablePage() {
             )}
             <Card>
                 <CardHeader>
-                    <CardTitle>My Weekly Timetable</CardTitle>
+                    <CardTitle>Weekly Timetable</CardTitle>
                     <CardDescription>
-                        Showing schedule for {department}, {semester}.
+                        { user?.role === 'Student' ? `Showing schedule for ${department}, ${semester}.` : 'Showing all schedules.'}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -172,24 +171,28 @@ export default function TimetablePage() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-[150px]">Day</TableHead>
+                                    <TableHead>Day</TableHead>
                                     <TableHead>Time</TableHead>
                                     <TableHead>Subject</TableHead>
                                     <TableHead>Teacher</TableHead>
+                                    <TableHead>Department</TableHead>
+                                    <TableHead>Semester</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {loading && <TableRow><TableCell colSpan={4} className="text-center">Loading...</TableCell></TableRow>}
-                                {!loading && timetableData.length > 0 ? timetableData.map((item) => (
+                                {loading && <TableRow><TableCell colSpan={6} className="text-center">Loading...</TableCell></TableRow>}
+                                {!loading && timetableData && timetableData.length > 0 ? timetableData.map((item) => (
                                     <TableRow key={item.id}>
                                         <TableCell className="font-medium">{item.day}</TableCell>
                                         <TableCell>{item.time}</TableCell>
                                         <TableCell>{item.subject}</TableCell>
                                         <TableCell>{item.teacher}</TableCell>
+                                        <TableCell>{item.department}</TableCell>
+                                        <TableCell>{item.semester}</TableCell>
                                     </TableRow>
                                 )) : !loading && (
                                     <TableRow>
-                                        <TableCell colSpan={4} className="text-center">
+                                        <TableCell colSpan={6} className="text-center">
                                             No timetable data available.
                                         </TableCell>
                                     </TableRow>
