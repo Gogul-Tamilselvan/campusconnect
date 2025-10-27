@@ -12,7 +12,7 @@ import { Camera } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useFirebase } from '@/firebase';
-import { getFirestore, collection, query, where } from 'firebase/firestore';
+import { getFirestore, collection, query, where, orderBy } from 'firebase/firestore';
 import { useCollection } from '@/firebase/firestore/use-collection';
 
 type AttendanceRecord = {
@@ -22,11 +22,21 @@ type AttendanceRecord = {
     status: 'Present' | 'Absent';
 };
 
+type Subject = {
+    id: string;
+    name: string;
+}
+
 const TeacherAttendance = () => {
     const { toast } = useToast();
     const [isScanning, setIsScanning] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
     const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+    const { app } = useFirebase();
+    const db = getFirestore(app);
+
+    const subjectsQuery = query(collection(db, 'subjects'), orderBy('name', 'asc'));
+    const { data: subjects, loading: subjectsLoading } = useCollection<Subject>(subjectsQuery);
 
     useEffect(() => {
         if (isScanning) {
@@ -86,9 +96,15 @@ const TeacherAttendance = () => {
                             <SelectValue placeholder="Select a class" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="ds">Data Structures</SelectItem>
-                            <SelectItem value="os">Operating Systems</SelectItem>
-                            <SelectItem value="dbms">Database Systems</SelectItem>
+                             {subjectsLoading ? (
+                                <SelectItem value="loading" disabled>Loading classes...</SelectItem>
+                            ) : (
+                                subjects?.map((subject) => (
+                                    <SelectItem key={subject.id} value={subject.name}>
+                                        {subject.name}
+                                    </SelectItem>
+                                ))
+                            )}
                         </SelectContent>
                     </Select>
                     <Button onClick={handleScanClick}>
