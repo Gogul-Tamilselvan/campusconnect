@@ -30,6 +30,15 @@ const CreateTimetableForm = () => {
     const { app } = useFirebase();
     const db = getFirestore(app);
 
+    const departmentsQuery = query(collection(db, 'departments'), orderBy('name', 'asc'));
+    const {data: departments, loading: departmentsLoading } = useCollection<{id:string, name:string}>(departmentsQuery);
+
+    const semestersQuery = query(collection(db, 'semesters'), orderBy('name', 'asc'));
+    const {data: semesters, loading: semestersLoading } = useCollection<{id:string, name:string}>(semestersQuery);
+    
+    const subjectsQuery = query(collection(db, 'subjects'), orderBy('name', 'asc'));
+    const {data: subjects, loading: subjectsLoading } = useCollection<{id:string, name:string}>(subjectsQuery);
+
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
@@ -72,8 +81,9 @@ const CreateTimetableForm = () => {
                             <Select name="department">
                                 <SelectTrigger><SelectValue placeholder="Select Department" /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="Computer Science">Computer Science</SelectItem>
-                                    <SelectItem value="Mechanical">Mechanical</SelectItem>
+                                    {departmentsLoading ? <SelectItem value="loading" disabled>Loading...</SelectItem> : 
+                                      departments?.map(d => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)
+                                    }
                                 </SelectContent>
                             </Select>
                         </div>
@@ -82,9 +92,9 @@ const CreateTimetableForm = () => {
                             <Select name="semester">
                                 <SelectTrigger><SelectValue placeholder="Select Semester" /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="1st Semester">1st Semester</SelectItem>
-                                    <SelectItem value="3rd Semester">3rd Semester</SelectItem>
-                                    <SelectItem value="5th Semester">5th Semester</SelectItem>
+                                     {semestersLoading ? <SelectItem value="loading" disabled>Loading...</SelectItem> :
+                                        semesters?.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)
+                                     }
                                 </SelectContent>
                             </Select>
                         </div>
@@ -106,8 +116,15 @@ const CreateTimetableForm = () => {
                             <Input id="time" name="time" placeholder="e.g., 9-10 AM" />
                         </div>
                          <div className='space-y-2'>
-                            <Label htmlFor="subject">Subject</Label>
-                            <Input id="subject" name="subject" placeholder="e.g., Data Structures" />
+                            <Label>Subject</Label>
+                             <Select name="subject">
+                                <SelectTrigger><SelectValue placeholder="Select Subject" /></SelectTrigger>
+                                <SelectContent>
+                                     {subjectsLoading ? <SelectItem value="loading" disabled>Loading...</SelectItem> :
+                                        subjects?.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)
+                                     }
+                                </SelectContent>
+                            </Select>
                         </div>
                          <div className='space-y-2'>
                             <Label htmlFor="teacher">Teacher</Label>

@@ -3,7 +3,7 @@
 import React from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
-  BarChart, Book, Calendar, Home, Megaphone, QrCode, ScrollText, Users, CheckSquare
+  BarChart, Book, Calendar, Home, Megaphone, QrCode, ScrollText, Users, CheckSquare, GraduationCap
 } from 'lucide-react';
 
 import { useAuth } from '@/hooks/use-auth';
@@ -46,6 +46,7 @@ const navItems: Record<UserRole, { href: string; icon: React.ElementType; label:
   ],
   Admin: [
     { href: '/dashboard', icon: Home, label: 'Dashboard' },
+    { href: '/dashboard/academics', icon: GraduationCap, label: 'Academics' },
     { href: '/dashboard/timetable', icon: Calendar, label: 'Manage Timetables' },
     { href: '/dashboard/attendance', icon: BarChart, label: 'Attendance Records' },
     { href: '/dashboard/announcements', icon: Megaphone, label: 'Manage Notices' },
@@ -59,6 +60,7 @@ const navItems: Record<UserRole, { href: string; icon: React.ElementType; label:
 
 const pageTitles: { [key: string]: string } = {
   '/dashboard': 'Dashboard',
+  '/dashboard/academics': 'Academics Management',
   '/dashboard/timetable': 'Timetable',
   '/dashboard/attendance': 'Attendance',
   '/dashboard/announcements': 'Announcements',
@@ -122,7 +124,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <SidebarInset>
         <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 py-4">
             <SidebarTrigger className="sm:hidden" />
-            <h1 className="text-xl font-semibold">{currentPageTitle}</h1>
+            <h1 className="text-xl font-semibold truncate">{currentPageTitle}</h1>
             <div className="ml-auto">
               <UserNav />
             </div>

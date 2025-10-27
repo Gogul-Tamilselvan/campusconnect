@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useFirebase } from '@/firebase';
 import { getStorage, ref, uploadBytes } from "firebase/storage";
-import { getFirestore, collection, addDoc, serverTimestamp, query, where } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, serverTimestamp, query, orderBy, where } from 'firebase/firestore';
 import { useCollection } from '@/firebase/firestore/use-collection';
 
 type StudyMaterial = {
@@ -31,6 +31,9 @@ const UploadMaterialForm = () => {
     const { user } = useAuth();
     const storage = getStorage(app);
     const db = getFirestore(app);
+
+    const subjectsQuery = query(collection(db, 'subjects'), orderBy('name', 'asc'));
+    const {data: subjects, loading: subjectsLoading } = useCollection<{id:string, name:string}>(subjectsQuery);
 
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -90,9 +93,9 @@ const UploadMaterialForm = () => {
                         <SelectValue placeholder="Select a Subject" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="Data Structures">Data Structures</SelectItem>
-                        <SelectItem value="Database Systems">Database Systems</SelectItem>
-                        <SelectItem value="Operating Systems">Operating Systems</SelectItem>
+                        {subjectsLoading ? <SelectItem value="loading" disabled>Loading...</SelectItem> :
+                            subjects?.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)
+                        }
                     </SelectContent>
                 </Select>
             
