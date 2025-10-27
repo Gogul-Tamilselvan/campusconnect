@@ -112,10 +112,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     isActive={pathname === item.href}
                     tooltip={item.label}
                   >
-                    <span>
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </span>
+                    <item.icon />
+                    <span>{item.label}</span>
                   </SidebarMenuButton>
                 </Link>
               </SidebarMenuItem>
