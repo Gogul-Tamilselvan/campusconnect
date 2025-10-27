@@ -131,15 +131,16 @@ const TeacherAttendance = () => {
     }, [db, presentStudents, toast]);
 
 
-    useEffect(() => {
+     useEffect(() => {
         let animationFrameId: number;
-
+        let stream: MediaStream | null = null;
+    
         const scanQrCode = () => {
             if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA && canvasRef.current) {
                 const video = videoRef.current;
                 const canvas = canvasRef.current;
-                const context = canvas.getContext('2d');
-
+                const context = canvas.getContext('2d', { willReadFrequently: true });
+    
                 if (context) {
                     canvas.height = video.videoHeight;
                     canvas.width = video.videoWidth;
@@ -148,13 +149,14 @@ const TeacherAttendance = () => {
                     const code = jsQR(imageData.data, imageData.width, imageData.height, {
                         inversionAttempts: 'dontInvert',
                     });
-
+    
                     if (code) {
                         if(selectedSubject) {
                             markAttendance(code.data, selectedSubject);
                         } else {
                             toast({ title: "Select a Subject", description: "Please select a subject before scanning.", variant: "destructive" });
                         }
+                        // Pause scanning briefly to avoid multiple scans of the same code
                         setIsScanning(false); 
                         setTimeout(() => { if(document.body.contains(videoRef.current)) setIsScanning(true) }, 2000);
                     }
@@ -164,46 +166,49 @@ const TeacherAttendance = () => {
                animationFrameId = requestAnimationFrame(scanQrCode);
             }
         };
-
-        if (isScanning) {
-            const getCameraPermission = async () => {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-                    setHasCameraPermission(true);
-
-                    if (videoRef.current) {
-                        videoRef.current.srcObject = stream;
-                        videoRef.current.play().then(() => {
-                            animationFrameId = requestAnimationFrame(scanQrCode);
-                        });
-                    }
-                } catch (error) {
-                    console.error('Error accessing camera:', error);
-                    setHasCameraPermission(false);
-                    toast({
-                        variant: 'destructive',
-                        title: 'Camera Access Denied',
-                        description: 'Please enable camera permissions in your browser settings.',
-                    });
-                    setIsScanning(false);
+    
+        const startScan = async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                setHasCameraPermission(true);
+    
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                    videoRef.current.onloadedmetadata = () => {
+                        videoRef.current?.play().catch(e => console.error("Video play error:", e));
+                        animationFrameId = requestAnimationFrame(scanQrCode);
+                    };
                 }
-            };
-            getCameraPermission();
-        } else {
-             if (videoRef.current && videoRef.current.srcObject) {
-                const stream = videoRef.current.srcObject as MediaStream;
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                setHasCameraPermission(false);
+                toast({
+                    variant: 'destructive',
+                    title: 'Camera Access Denied',
+                    description: 'Please enable camera permissions in your browser settings.',
+                });
+                setIsScanning(false);
+            }
+        };
+
+        const stopScan = () => {
+            cancelAnimationFrame(animationFrameId);
+            if (stream) {
                 stream.getTracks().forEach(track => track.stop());
             }
+            if (videoRef.current) {
+                videoRef.current.srcObject = null;
+            }
+        };
+    
+        if (isScanning) {
+            startScan();
+        } else {
+            stopScan();
         }
         
         return () => {
-             cancelAnimationFrame(animationFrameId);
-             if (videoRef.current && videoRef.current.srcObject) {
-                const stream = videoRef.current.srcObject as MediaStream;
-                if (stream) {
-                    stream.getTracks().forEach(track => track.stop());
-                }
-            }
+             stopScan();
         };
     }, [isScanning, toast, selectedSubject, markAttendance]);
 
@@ -350,11 +355,15 @@ const StudentAttendance = () => {
     const sortedRecords = useMemo(() => {
         if (!attendanceRecords) return [];
         return [...attendanceRecords].sort((a, b) => {
-             if (a.createdAt && b.createdAt) {
+             // First by date in descending order
+            const dateComparison = new Date(b.date).getTime() - new Date(a.date).getTime();
+            if (dateComparison !== 0) return dateComparison;
+
+            // Then by creation time if available
+            if (a.createdAt && b.createdAt) {
                 return b.createdAt.seconds - a.createdAt.seconds;
             }
-            // fallback for older records without createdAt
-            return new Date(b.date).getTime() - new Date(a.date).getTime();
+            return 0;
         });
     }, [attendanceRecords]);
 
