@@ -12,6 +12,8 @@ import {
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -56,12 +58,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const firebaseUser = userCredential.user;
 
     const userDocRef = doc(db, 'users', firebaseUser.uid);
-    await setDoc(userDocRef, {
+    const userData = {
       name: username,
       role: role,
       avatarUrl: `https://i.pravatar.cc/150?u=${firebaseUser.uid}`,
       email: email,
-    });
+    };
+    
+    setDoc(userDocRef, userData)
+      .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: userDocRef.path,
+          operation: 'create',
+          requestResourceData: userData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      });
   };
 
   const value = useMemo(() => ({
