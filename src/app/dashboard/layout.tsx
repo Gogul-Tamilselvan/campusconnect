@@ -1,6 +1,6 @@
 'use client';
 
-import React, 'react';
+import React from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
   BarChart, Book, Calendar, Home, Megaphone, QrCode, ScrollText, Users, FileText, CheckSquare
