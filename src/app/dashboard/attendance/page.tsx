@@ -29,6 +29,8 @@ type AttendanceRecord = {
 type Subject = {
     id: string;
     name: string;
+    department: string;
+    semester: string;
 }
 
 type Student = {
@@ -53,15 +55,20 @@ const TeacherAttendance = () => {
     const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
     const { app } = useFirebase();
     const db = getFirestore(app);
-    const [selectedSubject, setSelectedSubject] = useState('');
+    const [selectedSubjectId, setSelectedSubjectId] = useState('');
     const [presentStudents, setPresentStudents] = useState<PresentStudent[]>([]);
+    const [isMarkingAbsent, setIsMarkingAbsent] = useState(false);
 
 
     const subjectsQuery = query(collection(db, 'subjects'), orderBy('name', 'asc'));
     const { data: subjects, loading: subjectsLoading } = useCollection<Subject>(subjectsQuery);
 
-    const markAttendance = async (studentId: string, subjectName: string) => {
-        if (!studentId || !subjectName) return;
+    const selectedSubject = useMemo(() => {
+        return subjects?.find(s => s.id === selectedSubjectId);
+    }, [subjects, selectedSubjectId]);
+
+    const markAttendance = async (studentId: string, subject: Subject) => {
+        if (!studentId || !subject) return;
 
         // Check if student has already been marked present
         if (presentStudents.some(p => p.id === studentId)) {
@@ -84,7 +91,7 @@ const TeacherAttendance = () => {
 
             const attendanceRecord = {
                 studentId: studentId,
-                subject: subjectName,
+                subject: subject.name,
                 status: 'Present',
                 date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
                 createdAt: serverTimestamp(),
@@ -96,7 +103,7 @@ const TeacherAttendance = () => {
 
             toast({
                 title: "Attendance Marked!",
-                description: `${studentName} marked as present for ${subjectName}.`,
+                description: `${studentName} marked as present for ${subject.name}.`,
             });
         } catch (error) {
             console.error("Error marking attendance: ", error);
@@ -183,6 +190,67 @@ const TeacherAttendance = () => {
         };
     }, [isScanning, toast, selectedSubject]);
 
+    const handleMarkAbsentees = async () => {
+        if (!selectedSubject) {
+            toast({ title: 'Error', description: 'Please select a subject first.', variant: 'destructive' });
+            return;
+        }
+
+        setIsMarkingAbsent(true);
+        toast({ title: 'Processing...', description: 'Finding absent students and marking their attendance.' });
+
+        try {
+            // 1. Get all students for the subject's department and semester
+            const studentsQuery = query(
+                collection(db, 'users'),
+                where('role', '==', 'Student'),
+                where('department', '==', selectedSubject.department),
+                where('semester', '==', selectedSubject.semester)
+            );
+            const studentDocs = await getDocs(studentsQuery);
+            const allStudents = studentDocs.docs.map(doc => ({ uid: doc.id, ...doc.data() } as Student));
+
+            // 2. Get today's date
+            const today = new Date().toISOString().split('T')[0];
+
+            // 3. Find who is already marked present or absent today for this subject
+            const presentStudentIds = presentStudents.map(s => s.id);
+            const attendanceQuery = query(collection(db, 'attendance'), where('subject', '==', selectedSubject.name), where('date', '==', today));
+            const attendanceDocs = await getDocs(attendanceQuery);
+            const alreadyMarkedIds = attendanceDocs.docs.map(doc => doc.data().studentId);
+            const allMarkedIds = [...new Set([...presentStudentIds, ...alreadyMarkedIds])];
+
+            // 4. Determine absent students
+            const absentStudents = allStudents.filter(student => !allMarkedIds.includes(student.uid));
+
+            // 5. Create "Absent" records
+            const promises = absentStudents.map(student => {
+                const attendanceRecord = {
+                    studentId: student.uid,
+                    subject: selectedSubject.name,
+                    status: 'Absent',
+                    date: today,
+                    createdAt: serverTimestamp(),
+                };
+                return addDoc(collection(db, 'attendance'), attendanceRecord);
+            });
+
+            await Promise.all(promises);
+
+            if (absentStudents.length > 0) {
+                toast({ title: 'Success', description: `Marked ${absentStudents.length} student(s) as absent.` });
+            } else {
+                toast({ title: 'All Accounted For', description: 'All students for this class have an attendance record for today.' });
+            }
+
+        } catch (error) {
+            console.error('Error marking absentees:', error);
+            toast({ title: 'Error', description: 'Could not mark absent students.', variant: 'destructive' });
+        } finally {
+            setIsMarkingAbsent(false);
+        }
+    };
+
 
     return (
         <Card>
@@ -192,7 +260,7 @@ const TeacherAttendance = () => {
             </CardHeader>
             <CardContent className="space-y-4">
                  <div className="flex flex-col sm:flex-row gap-4 items-center">
-                    <Select onValueChange={setSelectedSubject} value={selectedSubject}>
+                    <Select onValueChange={setSelectedSubjectId} value={selectedSubjectId}>
                         <SelectTrigger className="w-full sm:w-[280px]">
                             <SelectValue placeholder="Select a class" />
                         </SelectTrigger>
@@ -201,17 +269,22 @@ const TeacherAttendance = () => {
                                 <SelectItem value="loading" disabled>Loading classes...</SelectItem>
                             ) : (
                                 subjects?.map((subject) => (
-                                    <SelectItem key={subject.id} value={subject.name}>
+                                    <SelectItem key={subject.id} value={subject.id}>
                                         {subject.name}
                                     </SelectItem>
                                 ))
                             )}
                         </SelectContent>
                     </Select>
-                    <Button onClick={() => setIsScanning(prev => !prev)} disabled={!selectedSubject}>
+                    <Button onClick={() => setIsScanning(prev => !prev)} disabled={!selectedSubjectId}>
                         <Camera className="mr-2 h-4 w-4" />
                         {isScanning ? 'Stop Scanner' : 'Scan QR Code'}
                     </Button>
+                    {presentStudents.length > 0 && (
+                        <Button onClick={handleMarkAbsentees} disabled={!selectedSubjectId || isMarkingAbsent} variant="outline">
+                            {isMarkingAbsent ? 'Processing...' : 'Mark Absentees'}
+                        </Button>
+                    )}
                 </div>
                 {isScanning && (
                     <div className='mt-4'>
@@ -229,7 +302,7 @@ const TeacherAttendance = () => {
                 )}
                 {presentStudents.length > 0 && (
                     <div className="mt-6 border-t pt-4">
-                        <h3 className="font-semibold mb-2">Today's Attendance: {selectedSubject}</h3>
+                        <h3 className="font-semibold mb-2">Today's Attendance: {selectedSubject?.name}</h3>
                          <p className="text-sm text-muted-foreground mb-4">{presentStudents.length} students present.</p>
                         <Table>
                             <TableHeader>
@@ -259,18 +332,8 @@ const StudentAttendance = () => {
     const { app } = useFirebase();
     const db = getFirestore(app);
     
-    const attendanceQuery = user ? query(collection(db, 'attendance'), where('studentId', '==', user.uid)) : null;
+    const attendanceQuery = user ? query(collection(db, 'attendance'), where('studentId', '==', user.uid), orderBy('createdAt', 'desc')) : null;
     const { data: attendanceRecords, loading } = useCollection<AttendanceRecord>(attendanceQuery);
-    
-    const sortedRecords = useMemo(() => {
-        if (!attendanceRecords) return [];
-        return [...attendanceRecords].sort((a, b) => {
-            const dateA = a.createdAt?.seconds || 0;
-            const dateB = b.createdAt?.seconds || 0;
-            return dateB - dateA;
-        });
-    }, [attendanceRecords]);
-
 
     return (
         <div className="grid md:grid-cols-2 gap-6">
@@ -306,18 +369,18 @@ const StudentAttendance = () => {
                         </TableHeader>
                         <TableBody>
                             {loading && <TableRow><TableCell colSpan={3} className="text-center">Loading...</TableCell></TableRow>}
-                            {sortedRecords && sortedRecords.map((record) => (
+                            {attendanceRecords && attendanceRecords.map((record) => (
                                 <TableRow key={record.id}>
                                     <TableCell className="font-medium">{record.date}</TableCell>
                                     <TableCell>{record.subject}</TableCell>
                                     <TableCell className="text-right">
-                                        <Badge variant={record.status === 'Present' ? 'default' : 'destructive'} className={record.status === 'Present' ? 'bg-green-500' : 'bg-red-500'}>
+                                        <Badge variant={record.status === 'Present' ? 'default' : 'destructive'} className={record.status === 'Present' ? 'bg-green-500' : ''}>
                                             {record.status}
                                         </Badge>
                                     </TableCell>
                                 </TableRow>
                             ))}
-                            {!loading && sortedRecords?.length === 0 && (
+                            {!loading && attendanceRecords?.length === 0 && (
                                 <TableRow>
                                     <TableCell colSpan={3} className="text-center text-muted-foreground">No attendance records found.</TableCell>
                                 </TableRow>
@@ -341,5 +404,3 @@ export default function AttendancePage() {
         </div>
     );
 }
-
-    

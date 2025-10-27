@@ -12,13 +12,19 @@ import { useFirebase } from '@/firebase';
 import { getFirestore, collection, addDoc, serverTimestamp, query, orderBy, doc, deleteDoc } from 'firebase/firestore';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type AcademicItem = {
   id: string;
   name: string;
 };
 
-const AddItemForm = ({ collectionName, itemName }: { collectionName: string, itemName: string }) => {
+type SubjectItem = AcademicItem & {
+    department: string;
+    semester: string;
+}
+
+const AddDepartmentForm = ({ collectionName, itemName }: { collectionName: string, itemName: string }) => {
     const [open, setOpen] = useState(false);
     const [name, setName] = useState('');
     const { toast } = useToast();
@@ -71,6 +77,92 @@ const AddItemForm = ({ collectionName, itemName }: { collectionName: string, ite
     );
 };
 
+const AddSubjectForm = () => {
+    const [open, setOpen] = useState(false);
+    const [name, setName] = useState('');
+    const [department, setDepartment] = useState('');
+    const [semester, setSemester] = useState('');
+    const { toast } = useToast();
+    const { app } = useFirebase();
+    const db = getFirestore(app);
+
+    const departmentsQuery = query(collection(db, 'departments'), orderBy('name', 'asc'));
+    const {data: departments, loading: departmentsLoading } = useCollection<{id:string, name:string}>(departmentsQuery);
+
+    const semestersQuery = query(collection(db, 'semesters'), orderBy('name', 'asc'));
+    const {data: semesters, loading: semestersLoading } = useCollection<{id:string, name:string}>(semestersQuery);
+
+    const handleSubmit = async () => {
+        if (name && department && semester) {
+            try {
+                await addDoc(collection(db, 'subjects'), {
+                    name,
+                    department,
+                    semester,
+                    createdAt: serverTimestamp(),
+                });
+                toast({ title: "Success", description: `Subject added.` });
+                setName('');
+                setDepartment('');
+                setSemester('');
+                setOpen(false);
+            } catch (error) {
+                 toast({ title: "Error", description: `Could not add subject.`, variant: "destructive" });
+            }
+        } else {
+            toast({ title: "Error", description: "All fields are required.", variant: "destructive" });
+        }
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add Subject
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                    <DialogTitle>Add Subject</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="name" className="text-right">Name</Label>
+                        <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Data Structures" className="col-span-3" />
+                    </div>
+                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label className="text-right">Department</Label>
+                        <Select onValueChange={setDepartment} value={department}>
+                            <SelectTrigger className="col-span-3"><SelectValue placeholder="Select Department" /></SelectTrigger>
+                            <SelectContent>
+                                {departmentsLoading ? <SelectItem value="loading" disabled>Loading...</SelectItem> : 
+                                departments?.map(d => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)
+                                }
+                            </SelectContent>
+                        </Select>
+                    </div>
+                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label className="text-right">Semester</Label>
+                        <Select onValueChange={setSemester} value={semester}>
+                            <SelectTrigger className="col-span-3"><SelectValue placeholder="Select Semester" /></SelectTrigger>
+                            <SelectContent>
+                                {semestersLoading ? <SelectItem value="loading" disabled>Loading...</SelectItem> :
+                                    semesters?.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)
+                                }
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button type="button" onClick={handleSubmit}>Add</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+
 const ItemList = ({ collectionName, itemName }: { collectionName: string, itemName: string }) => {
     const { app } = useFirebase();
     const db = getFirestore(app);
@@ -93,7 +185,7 @@ const ItemList = ({ collectionName, itemName }: { collectionName: string, itemNa
             <CardHeader>
                 <div className="flex justify-between items-center">
                     <CardTitle>Manage {itemName}s</CardTitle>
-                    <AddItemForm collectionName={collectionName} itemName={itemName} />
+                    <AddDepartmentForm collectionName={collectionName} itemName={itemName} />
                 </div>
             </CardHeader>
             <CardContent>
@@ -109,6 +201,52 @@ const ItemList = ({ collectionName, itemName }: { collectionName: string, itemNa
                 ))}
                 </div>
                 {!loading && items?.length === 0 && <p className="text-center text-muted-foreground py-4">No {itemName}s found.</p>}
+            </CardContent>
+        </Card>
+    );
+}
+
+const SubjectList = () => {
+    const { app } = useFirebase();
+    const db = getFirestore(app);
+    const { toast } = useToast();
+    
+    const itemsQuery = query(collection(db, 'subjects'), orderBy('name', 'asc'));
+    const { data: items, loading } = useCollection<SubjectItem>(itemsQuery);
+
+    const handleDelete = async (id: string) => {
+        try {
+            await deleteDoc(doc(db, 'subjects', id));
+            toast({ title: 'Success', description: `Subject deleted.` });
+        } catch (error) {
+            toast({ title: 'Error', description: `Could not delete subject.`, variant: 'destructive' });
+        }
+    }
+
+    return (
+        <Card>
+            <CardHeader>
+                <div className="flex justify-between items-center">
+                    <CardTitle>Manage Subjects</CardTitle>
+                    <AddSubjectForm />
+                </div>
+            </CardHeader>
+            <CardContent>
+                {loading && <p>Loading...</p>}
+                <div className="space-y-2">
+                {items && items.map(item => (
+                    <div key={item.id} className="flex items-center justify-between p-2 border rounded-lg">
+                        <div>
+                            <p>{item.name}</p>
+                            <p className='text-sm text-muted-foreground'>{item.department} &middot; {item.semester}</p>
+                        </div>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(item.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                    </div>
+                ))}
+                </div>
+                {!loading && items?.length === 0 && <p className="text-center text-muted-foreground py-4">No Subjects found.</p>}
             </CardContent>
         </Card>
     );
@@ -136,7 +274,7 @@ export default function AcademicsPage() {
                 <ItemList collectionName="semesters" itemName="Semester" />
             </TabsContent>
             <TabsContent value="subjects">
-                <ItemList collectionName="subjects" itemName="Subject" />
+                <SubjectList />
             </TabsContent>
         </Tabs>
     );
