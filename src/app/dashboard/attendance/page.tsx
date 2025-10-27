@@ -131,78 +131,85 @@ const TeacherAttendance = () => {
     }, [db, presentStudents, toast]);
 
     useEffect(() => {
-      let stream: MediaStream | null = null;
-      const getCameraPermission = async () => {
-        if (!isScanning) return;
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'environment' },
-          });
-          setHasCameraPermission(true);
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
+        let stream: MediaStream | null = null;
+        const video = videoRef.current;
+      
+        const getCameraPermission = async () => {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: { facingMode: 'environment' },
+            });
+            setHasCameraPermission(true);
+            if (video) {
+              video.srcObject = stream;
+              video.play().catch(e => console.error("Video play failed:", e));
+            }
+          } catch (error) {
+            console.error('Error accessing camera:', error);
+            setHasCameraPermission(false);
+            toast({
+              variant: 'destructive',
+              title: 'Camera Access Denied',
+              description: 'Please enable camera permissions in your browser settings to use this app.',
+            });
           }
-        } catch (error) {
-          console.error('Error accessing camera:', error);
-          setHasCameraPermission(false);
-          toast({
-            variant: 'destructive',
-            title: 'Camera Access Denied',
-            description: 'Please enable camera permissions in your browser settings to use this app.',
-          });
+        };
+      
+        if (isScanning) {
+          getCameraPermission();
         }
-      };
-      getCameraPermission();
-      return () => {
-        if (stream) {
-          stream.getTracks().forEach((track) => track.stop());
-        }
-      };
-    }, [isScanning, toast]);
-
-    useEffect(() => {
-      let animationFrameId: number;
-      const scanQrCode = () => {
-        if (
-          videoRef.current &&
-          videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA &&
-          canvasRef.current
-        ) {
+      
+        return () => {
+          if (stream) {
+            stream.getTracks().forEach((track) => track.stop());
+          }
+          if (video) {
+            video.srcObject = null;
+          }
+        };
+      }, [isScanning, toast]);
+      
+      useEffect(() => {
+        let animationFrameId: number;
+        const scanQrCode = () => {
           const video = videoRef.current;
           const canvas = canvasRef.current;
-          const context = canvas.getContext('2d', { willReadFrequently: true });
-          if (context) {
-            canvas.height = video.videoHeight;
-            canvas.width = video.videoWidth;
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-            try {
-              const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                inversionAttempts: 'dontInvert',
-              });
-              if (code && selectedSubject) {
-                markAttendance(code.data, selectedSubject);
-                // Brief pause to prevent multiple scans of the same code
-                setIsScanning(false);
-                setTimeout(() => setIsScanning(true), 2000);
+      
+          if (video && video.readyState === video.HAVE_ENOUGH_DATA && canvas) {
+            const context = canvas.getContext('2d', { willReadFrequently: true });
+            if (context) {
+              canvas.height = video.videoHeight;
+              canvas.width = video.videoWidth;
+              context.drawImage(video, 0, 0, canvas.width, canvas.height);
+              const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+              try {
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                  inversionAttempts: 'dontInvert',
+                });
+                if (code && selectedSubject) {
+                  markAttendance(code.data, selectedSubject);
+                  // Brief pause to prevent multiple scans of the same code
+                  setIsScanning(false);
+                  setTimeout(() => setIsScanning(true), 2000);
+                }
+              } catch (err) {
+                // Errors from jsQR are expected if no QR is in frame
               }
-            } catch (err) {
-              // Errors from jsQR are expected if no QR is in frame
             }
           }
+          if (isScanning) {
+            animationFrameId = requestAnimationFrame(scanQrCode);
+          }
+        };
+      
+        if (isScanning && hasCameraPermission) {
+          scanQrCode();
         }
-        if (isScanning) {
-          animationFrameId = requestAnimationFrame(scanQrCode);
-        }
-      };
-
-      if (isScanning && hasCameraPermission) {
-        scanQrCode();
-      }
-      return () => {
-        cancelAnimationFrame(animationFrameId);
-      };
-    }, [isScanning, hasCameraPermission, selectedSubject, markAttendance]);
+      
+        return () => {
+          cancelAnimationFrame(animationFrameId);
+        };
+      }, [isScanning, hasCameraPermission, selectedSubject, markAttendance]);
 
 
     const handleMarkAbsentees = async () => {
