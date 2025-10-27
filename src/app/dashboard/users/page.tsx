@@ -48,12 +48,13 @@ export default function ManageUsersPage() {
                     <TableBody>
                         {loading && <TableRow><TableCell colSpan={3} className="text-center">Loading users...</TableCell></TableRow>}
                         {users && users.map(u => (
-                            <TableRow key={u.uid}>
+                            <TableRow key={u.id}>
                                 <TableCell>
                                     <div className="flex items-center gap-3">
                                         <Avatar>
                                             <AvatarImage src={u.avatarUrl} alt={u.name} />
                                             <AvatarFallback>{u.name.charAt(0)}</AvatarFallback>
+
                                         </Avatar>
                                         <span className="font-medium">{u.name}</span>
                                     </div>
