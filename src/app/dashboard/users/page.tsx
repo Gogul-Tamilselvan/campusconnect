@@ -44,7 +44,10 @@ const EditUserDialog = ({ user, open, onOpenChange, onUserUpdate }: { user: User
 
 
     const handleUpdate = async () => {
-        if (!user) return;
+        if (!user || !user.uid) {
+             toast({ title: 'Error', description: 'Cannot update user without a valid ID.', variant: 'destructive' });
+             return;
+        };
         setIsSaving(true);
 
         const userDocRef = doc(db, 'users', user.uid);
