@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const userDocRef = doc(db, 'users', firebaseUser.uid);
         const userDoc = await getDoc(userDocRef);
         if (userDoc.exists()) {
-          setUser({ uid: firebaseUser.uid, ...userDoc.data() } as User);
+          setUser({ uid: firebaseUser.uid, id: firebaseUser.uid, ...userDoc.data() } as User);
         }
       } else {
         setUser(null);
@@ -50,21 +50,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signOut(auth);
   };
 
-  const signup = async (email: string, password?: string, username?: string, department?: string, semester?: string) => {
-    if (!password || !username || !email || !department || !semester) {
+  const signup = async (email: string, password?: string, username?: string, role?: UserRole, department?: string, semester?: string) => {
+    if (!password || !username || !email || !role) {
       throw new Error("Missing fields for signup");
     }
+    if (role === 'Student' && (!department || !semester)) {
+        throw new Error("Department and semester are required for students.");
+    }
+
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const firebaseUser = userCredential.user;
 
     const userDocRef = doc(db, 'users', firebaseUser.uid);
-    const userData = {
+    const userData: Omit<User, 'id' | 'uid'> = {
       name: username,
-      role: 'Student',
+      role: role,
       avatarUrl: `https://i.pravatar.cc/150?u=${firebaseUser.uid}`,
       email: email,
-      department: department,
-      semester: semester
+      department: role === 'Student' ? department : '',
+      semester: role === 'Student' ? semester : '',
     };
     
     setDoc(userDocRef, userData)

@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useFirebase } from '@/firebase';
 import { getFirestore, collection, query, orderBy } from 'firebase/firestore';
 import { useCollection } from '@/firebase/firestore/use-collection';
+import { UserRole } from '@/lib/types';
 
 export default function SignupPage() {
   const { signup } = useAuth();
@@ -23,6 +24,7 @@ export default function SignupPage() {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState<UserRole | ''>('');
   const [department, setDepartment] = useState('');
   const [semester, setSemester] = useState('');
   
@@ -37,16 +39,25 @@ export default function SignupPage() {
 
 
   const handleSignup = async () => {
-    if(!username || !email || !password || !department || !semester) {
+    if(!username || !email || !password || !role) {
       toast({
         title: 'Missing Information',
-        description: 'Please fill in all fields.',
+        description: 'Please fill in all required fields.',
         variant: 'destructive',
       });
       return;
     }
+    if (role === 'Student' && (!department || !semester)) {
+         toast({
+            title: 'Missing Information',
+            description: 'Please select a department and semester.',
+            variant: 'destructive',
+        });
+        return;
+    }
+
     try {
-      await signup(email, password, username, department, semester);
+      await signup(email, password, username, role, department, semester);
       toast({
           title: 'Signup Successful',
           description: "You can now log in with your credentials.",
@@ -94,30 +105,42 @@ export default function SignupPage() {
                     <Input id="password" type="password" placeholder="Create a password" className="pl-9" value={password} onChange={e => setPassword(e.target.value)} />
                 </div>
             </div>
-             <div className="grid grid-cols-2 gap-4">
-                 <div className="space-y-2">
-                    <Label>Department</Label>
-                    <Select onValueChange={setDepartment} value={department}>
-                        <SelectTrigger><SelectValue placeholder="Select Department" /></SelectTrigger>
-                        <SelectContent>
-                            {departmentsLoading ? <SelectItem value="loading" disabled>Loading...</SelectItem> : 
-                              departments?.map(d => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)
-                            }
-                        </SelectContent>
-                    </Select>
+            <div className="space-y-2">
+                <Label>Role</Label>
+                <Select onValueChange={(value) => setRole(value as UserRole)} value={role}>
+                    <SelectTrigger><SelectValue placeholder="Select your role" /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="Student">Student</SelectItem>
+                        <SelectItem value="Teacher">Teacher</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+             {role === 'Student' && (
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label>Department</Label>
+                        <Select onValueChange={setDepartment} value={department}>
+                            <SelectTrigger><SelectValue placeholder="Select Department" /></SelectTrigger>
+                            <SelectContent>
+                                {departmentsLoading ? <SelectItem value="loading" disabled>Loading...</SelectItem> : 
+                                departments?.map(d => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)
+                                }
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Semester</Label>
+                        <Select onValueChange={setSemester} value={semester}>
+                            <SelectTrigger><SelectValue placeholder="Select Semester" /></SelectTrigger>
+                            <SelectContent>
+                                {semestersLoading ? <SelectItem value="loading" disabled>Loading...</SelectItem> :
+                                    semesters?.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)
+                                }
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </div>
-                 <div className="space-y-2">
-                    <Label>Semester</Label>
-                    <Select onValueChange={setSemester} value={semester}>
-                        <SelectTrigger><SelectValue placeholder="Select Semester" /></SelectTrigger>
-                        <SelectContent>
-                             {semestersLoading ? <SelectItem value="loading" disabled>Loading...</SelectItem> :
-                                semesters?.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)
-                             }
-                        </SelectContent>
-                    </Select>
-                </div>
-             </div>
+             )}
             <Button onClick={handleSignup} className="w-full">
               Sign Up
             </Button>
