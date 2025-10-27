@@ -7,11 +7,20 @@ import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useState, useRef, useEffect } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { attendanceRecords } from '@/lib/mock-data';
 import { Badge } from '@/components/ui/badge';
 import { Camera } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useFirebase } from '@/firebase';
+import { getFirestore, collection, query, where } from 'firebase/firestore';
+import { useCollection } from '@/firebase/firestore/use-collection';
+
+type AttendanceRecord = {
+    id: string;
+    date: string;
+    subject: string;
+    status: 'Present' | 'Absent';
+};
 
 const TeacherAttendance = () => {
     const { toast } = useToast();
@@ -111,6 +120,12 @@ const TeacherAttendance = () => {
 
 const StudentAttendance = () => {
     const qrCodeImage = PlaceHolderImages.find(img => img.id === 'qr-code');
+    const { user } = useAuth();
+    const { app } = useFirebase();
+    const db = getFirestore(app);
+    
+    const attendanceQuery = user ? query(collection(db, 'attendance'), where('studentId', '==', user.uid)) : null;
+    const { data: attendanceRecords, loading } = useCollection<AttendanceRecord>(attendanceQuery);
 
     return (
         <div className="grid md:grid-cols-2 gap-6">
@@ -130,7 +145,7 @@ const StudentAttendance = () => {
                                 data-ai-hint={qrCodeImage.imageHint}
                             />
                             <p className="mt-4 text-sm text-muted-foreground">
-                                This code identifies you, Student User.
+                                This code identifies you, {user?.name}.
                             </p>
                         </div>
                     )}
@@ -151,8 +166,9 @@ const StudentAttendance = () => {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {attendanceRecords.map((record, index) => (
-                                <TableRow key={index}>
+                            {loading && <TableRow><TableCell colSpan={3} className="text-center">Loading...</TableCell></TableRow>}
+                            {attendanceRecords && attendanceRecords.map((record) => (
+                                <TableRow key={record.id}>
                                     <TableCell className="font-medium">{record.date}</TableCell>
                                     <TableCell>{record.subject}</TableCell>
                                     <TableCell className="text-right">
@@ -162,6 +178,11 @@ const StudentAttendance = () => {
                                     </TableCell>
                                 </TableRow>
                             ))}
+                            {!loading && attendanceRecords?.length === 0 && (
+                                <TableRow>
+                                    <TableCell colSpan={3} className="text-center text-muted-foreground">No attendance records found.</TableCell>
+                                </TableRow>
+                            )}
                         </TableBody>
                     </Table>
                 </CardContent>
