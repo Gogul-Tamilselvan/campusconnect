@@ -3,12 +3,12 @@ import React, { createContext, useContext } from 'react';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyB8ahNcHBe4tTBi1mrJINcXcl_QQXt3OYo",
+  authDomain: "campusconnectz.firebaseapp.com",
+  projectId: "campusconnectz",
+  storageBucket: "campusconnectz.firebasestorage.app",
+  messagingSenderId: "620187555067",
+  appId: "1:620187555067:web:60dadc881f97b1a31e4c5e"
 };
 
 interface FirebaseContextValue {
