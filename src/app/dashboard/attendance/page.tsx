@@ -10,9 +10,10 @@ import { Camera } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useFirebase } from '@/firebase';
-import { getFirestore, collection, query, where, orderBy } from 'firebase/firestore';
+import { getFirestore, collection, query, where, orderBy, addDoc, serverTimestamp, getDocs, doc } from 'firebase/firestore';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import QRCode from "react-qr-code";
+import jsQR from "jsqr";
 
 type AttendanceRecord = {
     id: string;
@@ -26,71 +27,170 @@ type Subject = {
     name: string;
 }
 
+type Student = {
+    id: string;
+    uid: string;
+    name: string;
+    department: string;
+    semester: string;
+}
+
+type PresentStudent = {
+    id: string;
+    name: string;
+    timestamp: Date;
+}
+
 const TeacherAttendance = () => {
     const { toast } = useToast();
     const [isScanning, setIsScanning] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
     const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
     const { app } = useFirebase();
     const db = getFirestore(app);
+    const [selectedSubject, setSelectedSubject] = useState('');
+    const [presentStudents, setPresentStudents] = useState<PresentStudent[]>([]);
+
 
     const subjectsQuery = query(collection(db, 'subjects'), orderBy('name', 'asc'));
     const { data: subjects, loading: subjectsLoading } = useCollection<Subject>(subjectsQuery);
 
-    useEffect(() => {
-        if (isScanning) {
-            const getCameraPermission = async () => {
-              try {
-                const stream = await navigator.mediaDevices.getUserMedia({video: true});
-                setHasCameraPermission(true);
-        
-                if (videoRef.current) {
-                  videoRef.current.srcObject = stream;
-                }
-              } catch (error) {
-                console.error('Error accessing camera:', error);
-                setHasCameraPermission(false);
-                toast({
-                  variant: 'destructive',
-                  title: 'Camera Access Denied',
-                  description: 'Please enable camera permissions in your browser settings to use this feature.',
-                });
-                setIsScanning(false);
-              }
-            };
-        
-            getCameraPermission();
+    const markAttendance = async (studentId: string, subjectName: string) => {
+        if (!studentId || !subjectName) return;
 
-            return () => {
-                // Stop camera stream when component unmounts or scanning stops
-                if (videoRef.current && videoRef.current.srcObject) {
-                    const stream = videoRef.current.srcObject as MediaStream;
-                    stream.getTracks().forEach(track => track.stop());
-                }
-            }
+        // Check if student has already been marked present
+        if (presentStudents.some(p => p.id === studentId)) {
+            toast({ title: "Already Marked", description: "This student's attendance has already been recorded.", variant: "default" });
+            return;
         }
-      }, [isScanning, toast]);
 
-    const handleScanClick = () => {
-        if (isScanning) {
-            setIsScanning(false);
-        } else {
-            setIsScanning(true);
+        try {
+             // Fetch student details
+            const usersRef = collection(db, "users");
+            const q = query(usersRef, where("uid", "==", studentId));
+            const querySnapshot = await getDocs(q);
+
+            let studentName = 'Unknown Student';
+            if (!querySnapshot.empty) {
+                const studentDoc = querySnapshot.docs[0];
+                studentName = studentDoc.data().name;
+            } else {
+                 toast({ title: "Error", description: "Student not found in the system.", variant: "destructive" });
+                 return;
+            }
+
+            const attendanceRecord = {
+                studentId: studentId,
+                subject: subjectName,
+                status: 'Present',
+                date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
+                createdAt: serverTimestamp(),
+            };
+
+            await addDoc(collection(db, 'attendance'), attendanceRecord);
+            
+            setPresentStudents(prev => [...prev, { id: studentId, name: studentName, timestamp: new Date() }]);
+
             toast({
-                title: "Scanner Activated",
-                description: "Ready to scan student QR codes.",
+                title: "Attendance Marked!",
+                description: `${studentName} marked as present for ${subjectName}.`,
+            });
+        } catch (error) {
+            console.error("Error marking attendance: ", error);
+            toast({
+                title: "Error",
+                description: "Failed to mark attendance.",
+                variant: "destructive",
             });
         }
-    }
+    };
+
+
+    useEffect(() => {
+        let animationFrameId: number;
+
+        const scanQrCode = () => {
+            if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA && canvasRef.current) {
+                const video = videoRef.current;
+                const canvas = canvasRef.current;
+                const context = canvas.getContext('2d');
+
+                if (context) {
+                    canvas.height = video.videoHeight;
+                    canvas.width = video.videoWidth;
+                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                        inversionAttempts: 'dontInvert',
+                    });
+
+                    if (code) {
+                        // QR Code detected
+                        if(selectedSubject) {
+                            markAttendance(code.data, selectedSubject);
+                        } else {
+                            toast({ title: "Select a Subject", description: "Please select a subject before scanning.", variant: "destructive" });
+                        }
+                        // Pause scanning for a bit to prevent multiple scans of the same code
+                        setIsScanning(false); 
+                        setTimeout(() => { if(document.body) setIsScanning(true) }, 2000);
+                    }
+                }
+            }
+            if (isScanning) {
+               animationFrameId = requestAnimationFrame(scanQrCode);
+            }
+        };
+
+        if (isScanning) {
+            const getCameraPermission = async () => {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                    setHasCameraPermission(true);
+
+                    if (videoRef.current) {
+                        videoRef.current.srcObject = stream;
+                    }
+                    animationFrameId = requestAnimationFrame(scanQrCode);
+                } catch (error) {
+                    console.error('Error accessing camera:', error);
+                    setHasCameraPermission(false);
+                    toast({
+                        variant: 'destructive',
+                        title: 'Camera Access Denied',
+                        description: 'Please enable camera permissions in your browser settings.',
+                    });
+                    setIsScanning(false);
+                }
+            };
+            getCameraPermission();
+        } else {
+             if (videoRef.current && videoRef.current.srcObject) {
+                const stream = videoRef.current.srcObject as MediaStream;
+                stream.getTracks().forEach(track => track.stop());
+            }
+        }
+        
+        return () => {
+             cancelAnimationFrame(animationFrameId);
+             if (videoRef.current && videoRef.current.srcObject) {
+                const stream = videoRef.current.srcObject as MediaStream;
+                stream.getTracks().forEach(track => track.stop());
+            }
+        };
+    }, [isScanning, toast, selectedSubject]);
+
+
     return (
         <Card>
             <CardHeader>
                 <CardTitle>Take Attendance</CardTitle>
-                <CardDescription>Scan student QR codes to mark them as present.</CardDescription>
+                <CardDescription>Select a class and scan student QR codes to mark them present.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                  <div className="flex flex-col sm:flex-row gap-4 items-center">
-                    <Select>
+                    <Select onValueChange={setSelectedSubject} value={selectedSubject}>
                         <SelectTrigger className="w-full sm:w-[280px]">
                             <SelectValue placeholder="Select a class" />
                         </SelectTrigger>
@@ -106,14 +206,15 @@ const TeacherAttendance = () => {
                             )}
                         </SelectContent>
                     </Select>
-                    <Button onClick={handleScanClick}>
+                    <Button onClick={() => setIsScanning(prev => !prev)} disabled={!selectedSubject}>
                         <Camera className="mr-2 h-4 w-4" />
                         {isScanning ? 'Stop Scanner' : 'Scan QR Code'}
                     </Button>
                 </div>
                 {isScanning && (
                     <div className='mt-4'>
-                        <video ref={videoRef} className="w-full aspect-video rounded-md bg-muted" autoPlay muted />
+                        <video ref={videoRef} className="w-full aspect-video rounded-md bg-muted" autoPlay muted playsInline />
+                        <canvas ref={canvasRef} style={{ display: 'none' }} />
                         {hasCameraPermission === false && (
                             <Alert variant="destructive" className="mt-4">
                                 <AlertTitle>Camera Access Required</AlertTitle>
@@ -124,10 +225,28 @@ const TeacherAttendance = () => {
                         )}
                     </div>
                 )}
-                <div className="mt-6 border-t pt-4">
-                    <h3 className="font-semibold mb-2">Today's Attendance: Data Structures</h3>
-                    <p className="text-sm text-muted-foreground">32/40 students present.</p>
-                </div>
+                {presentStudents.length > 0 && (
+                    <div className="mt-6 border-t pt-4">
+                        <h3 className="font-semibold mb-2">Today's Attendance: {selectedSubject}</h3>
+                         <p className="text-sm text-muted-foreground mb-4">{presentStudents.length} students present.</p>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Student Name</TableHead>
+                                    <TableHead className="text-right">Time Marked</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {presentStudents.sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime()).map(student => (
+                                    <TableRow key={student.id}>
+                                        <TableCell>{student.name}</TableCell>
+                                        <TableCell className="text-right">{student.timestamp.toLocaleTimeString()}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                )}
             </CardContent>
         </Card>
     );
@@ -138,7 +257,7 @@ const StudentAttendance = () => {
     const { app } = useFirebase();
     const db = getFirestore(app);
     
-    const attendanceQuery = user ? query(collection(db, 'attendance'), where('studentId', '==', user.uid)) : null;
+    const attendanceQuery = user ? query(collection(db, 'attendance'), where('studentId', '==', user.uid), orderBy('createdAt', 'desc')) : null;
     const { data: attendanceRecords, loading } = useCollection<AttendanceRecord>(attendanceQuery);
 
     return (
@@ -151,7 +270,7 @@ const StudentAttendance = () => {
                 <CardContent>
                     {user?.uid && (
                         <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 bg-white">
-                             <QRCode value={user.uid} />
+                             <QRCode value={user.uid} size={160} />
                             <p className="mt-4 text-sm text-muted-foreground">
                                 This code identifies you, {user?.name}.
                             </p>
@@ -210,3 +329,5 @@ export default function AttendancePage() {
         </div>
     );
 }
+
+    
