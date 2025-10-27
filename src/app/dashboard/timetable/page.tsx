@@ -2,7 +2,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAuth } from '@/hooks/use-auth';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -148,7 +148,16 @@ export default function TimetablePage() {
     const timetableQuery = query(collection(db, 'timetables'), orderBy('createdAt', 'desc'));
     const {data: timetableData, loading} = useCollection<TimetableEntry>(timetableQuery);
     
-    // In a real app, you might want to filter this based on user's role or selections
+    const filteredTimetable = useMemo(() => {
+        if (!user || !timetableData) return [];
+        if (user.role === 'Student') {
+            return timetableData.filter(
+                (item) => item.department === user.department && item.semester === user.semester
+            );
+        }
+        return timetableData;
+    }, [user, timetableData]);
+
     const department = user?.department || 'All Departments';
     const semester = user?.semester || 'All Semesters';
 
@@ -175,24 +184,24 @@ export default function TimetablePage() {
                                     <TableHead>Time</TableHead>
                                     <TableHead>Subject</TableHead>
                                     <TableHead>Teacher</TableHead>
-                                    <TableHead>Department</TableHead>
-                                    <TableHead>Semester</TableHead>
+                                    {user?.role !== 'Student' && <TableHead>Department</TableHead>}
+                                    {user?.role !== 'Student' && <TableHead>Semester</TableHead>}
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {loading && <TableRow><TableCell colSpan={6} className="text-center">Loading...</TableCell></TableRow>}
-                                {!loading && timetableData && timetableData.length > 0 ? timetableData.map((item) => (
+                                {loading && <TableRow><TableCell colSpan={user?.role === 'Student' ? 4 : 6} className="text-center">Loading...</TableCell></TableRow>}
+                                {!loading && filteredTimetable.length > 0 ? filteredTimetable.map((item) => (
                                     <TableRow key={item.id}>
                                         <TableCell className="font-medium">{item.day}</TableCell>
                                         <TableCell>{item.time}</TableCell>
                                         <TableCell>{item.subject}</TableCell>
                                         <TableCell>{item.teacher}</TableCell>
-                                        <TableCell>{item.department}</TableCell>
-                                        <TableCell>{item.semester}</TableCell>
+                                        {user?.role !== 'Student' && <TableCell>{item.department}</TableCell>}
+                                        {user?.role !== 'Student' && <TableCell>{item.semester}</TableCell>}
                                     </TableRow>
                                 )) : !loading && (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center">
+                                        <TableCell colSpan={user?.role === 'Student' ? 4 : 6} className="text-center">
                                             No timetable data available.
                                         </TableCell>
                                     </TableRow>
