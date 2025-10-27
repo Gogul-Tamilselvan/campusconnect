@@ -14,12 +14,15 @@ import { getFirestore, collection, query, where, orderBy, addDoc, serverTimestam
 import { useCollection } from '@/firebase/firestore/use-collection';
 import QRCode from "react-qr-code";
 import jsQR from "jsqr";
+import { User } from '@/lib/types';
+import { Input } from '@/components/ui/input';
 
 type AttendanceRecord = {
     id: string;
     date: string;
     subject: string;
     status: 'Present' | 'Absent';
+    studentId: string;
     createdAt: {
         seconds: number;
         nanoseconds: number;
@@ -58,6 +61,7 @@ const TeacherAttendance = () => {
     const [selectedSubjectId, setSelectedSubjectId] = useState('');
     const [presentStudents, setPresentStudents] = useState<PresentStudent[]>([]);
     const [isMarkingAbsent, setIsMarkingAbsent] = useState(false);
+    const animationFrameId = useRef<number | null>(null);
 
 
     const subjectsQuery = query(collection(db, 'subjects'), orderBy('name', 'asc'));
@@ -72,14 +76,12 @@ const TeacherAttendance = () => {
 
         const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 
-        // Check local state first for quick feedback
         if (presentStudents.some(p => p.id === studentId)) {
             toast({ title: "Already Marked", description: "This student's attendance has already been recorded for this session.", variant: "default" });
             return;
         }
 
         try {
-            // Check Firestore for an existing record for this student, subject, and date
             const attendanceQuery = query(
                 collection(db, 'attendance'),
                 where('studentId', '==', studentId),
@@ -131,18 +133,14 @@ const TeacherAttendance = () => {
     }, [db, presentStudents, toast]);
 
     useEffect(() => {
-        let stream: MediaStream | null = null;
-        const video = videoRef.current;
-      
         const getCameraPermission = async () => {
+          if (!isScanning) return;
+    
           try {
-            stream = await navigator.mediaDevices.getUserMedia({
-              video: { facingMode: 'environment' },
-            });
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
             setHasCameraPermission(true);
-            if (video) {
-              video.srcObject = stream;
-              video.play().catch(e => console.error("Video play failed:", e));
+            if (videoRef.current) {
+              videoRef.current.srcObject = stream;
             }
           } catch (error) {
             console.error('Error accessing camera:', error);
@@ -154,62 +152,81 @@ const TeacherAttendance = () => {
             });
           }
         };
-      
-        if (isScanning) {
-          getCameraPermission();
-        }
-      
+    
+        getCameraPermission();
+    
         return () => {
-          if (stream) {
+          if (videoRef.current && videoRef.current.srcObject) {
+            const stream = videoRef.current.srcObject as MediaStream;
             stream.getTracks().forEach((track) => track.stop());
-          }
-          if (video) {
-            video.srcObject = null;
+            videoRef.current.srcObject = null;
           }
         };
-      }, [isScanning, toast]);
-      
-      useEffect(() => {
-        let animationFrameId: number;
-        const scanQrCode = () => {
-          const video = videoRef.current;
-          const canvas = canvasRef.current;
-      
-          if (video && video.readyState === video.HAVE_ENOUGH_DATA && canvas) {
-            const context = canvas.getContext('2d', { willReadFrequently: true });
-            if (context) {
-              canvas.height = video.videoHeight;
-              canvas.width = video.videoWidth;
-              context.drawImage(video, 0, 0, canvas.width, canvas.height);
-              const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-              try {
-                const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                  inversionAttempts: 'dontInvert',
-                });
-                if (code && selectedSubject) {
-                  markAttendance(code.data, selectedSubject);
-                  // Brief pause to prevent multiple scans of the same code
-                  setIsScanning(false);
-                  setTimeout(() => setIsScanning(true), 2000);
-                }
-              } catch (err) {
-                // Errors from jsQR are expected if no QR is in frame
-              }
+    }, [isScanning, toast]);
+
+
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!isScanning || !video || !hasCameraPermission) {
+            if (animationFrameId.current) {
+                cancelAnimationFrame(animationFrameId.current);
             }
-          }
-          if (isScanning) {
-            animationFrameId = requestAnimationFrame(scanQrCode);
-          }
-        };
-      
-        if (isScanning && hasCameraPermission) {
-          scanQrCode();
+            return;
         }
-      
-        return () => {
-          cancelAnimationFrame(animationFrameId);
+    
+        const scanQrCode = () => {
+            if (!isScanning || !video || video.readyState !== video.HAVE_ENOUGH_DATA) {
+                animationFrameId.current = requestAnimationFrame(scanQrCode);
+                return;
+            }
+    
+            const canvas = canvasRef.current;
+            if (canvas) {
+                const context = canvas.getContext('2d', { willReadFrequently: true });
+                if (context) {
+                    canvas.height = video.videoHeight;
+                    canvas.width = video.videoWidth;
+                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                    try {
+                        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                            inversionAttempts: 'dontInvert',
+                        });
+                        if (code && selectedSubject) {
+                            markAttendance(code.data, selectedSubject);
+                            // Brief pause to prevent multiple scans of the same code
+                            setTimeout(() => {
+                                animationFrameId.current = requestAnimationFrame(scanQrCode);
+                            }, 2000);
+                            return;
+                        }
+                    } catch (err) {
+                        // Errors from jsQR can happen if no QR is in frame
+                    }
+                }
+            }
+            animationFrameId.current = requestAnimationFrame(scanQrCode);
         };
-      }, [isScanning, hasCameraPermission, selectedSubject, markAttendance]);
+    
+        const handleCanPlay = () => {
+            if(animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
+            animationFrameId.current = requestAnimationFrame(scanQrCode);
+        }
+    
+        video.addEventListener('canplay', handleCanPlay);
+        if (video.readyState >= video.HAVE_ENOUGH_DATA) {
+             handleCanPlay();
+        }
+    
+        return () => {
+            if (video) {
+                video.removeEventListener('canplay', handleCanPlay);
+            }
+            if (animationFrameId.current) {
+                cancelAnimationFrame(animationFrameId.current);
+            }
+        };
+    }, [isScanning, hasCameraPermission, selectedSubject, markAttendance]);
 
 
     const handleMarkAbsentees = async () => {
@@ -355,16 +372,14 @@ const StudentAttendance = () => {
     const sortedRecords = useMemo(() => {
         if (!attendanceRecords) return [];
         return [...attendanceRecords].sort((a, b) => {
-             // First by date in descending order
-            const dateComparison = new Date(b.date).getTime() - new Date(a.date).getTime();
-            if (dateComparison !== 0) return dateComparison;
-
-            // Then by creation time if available
-            if (a.createdAt && b.createdAt) {
-                return b.createdAt.seconds - a.createdAt.seconds;
+            const dateA = new Date(a.date).getTime();
+            const dateB = new Date(b.date).getTime();
+            if (dateB !== dateA) return dateB - dateA;
+            if (b.createdAt && a.createdAt) {
+              return b.createdAt.seconds - a.createdAt.seconds;
             }
             return 0;
-        });
+          });
     }, [attendanceRecords]);
 
     return (
@@ -403,7 +418,7 @@ const StudentAttendance = () => {
                             {loading && <TableRow><TableCell colSpan={3} className="text-center">Loading...</TableCell></TableRow>}
                             {sortedRecords && sortedRecords.map((record) => (
                                 <TableRow key={record.id}>
-                                    <TableCell className="font-medium">{record.date}</TableCell>
+                                    <TableCell className="font-medium">{new Date(record.date).toLocaleDateString()}</TableCell>
                                     <TableCell>{record.subject}</TableCell>
                                     <TableCell className="text-right">
                                         <Badge variant={record.status === 'Present' ? 'default' : 'destructive'} className={record.status === 'Present' ? 'bg-green-500' : ''}>
@@ -425,6 +440,102 @@ const StudentAttendance = () => {
     );
 }
 
+const AdminAttendance = () => {
+    const { app } = useFirebase();
+    const db = getFirestore(app);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterStatus, setFilterStatus] = useState('All');
+
+    const { data: attendanceRecords, loading: attendanceLoading } = useCollection<AttendanceRecord>(query(collection(db, 'attendance'), orderBy('createdAt', 'desc')));
+    const { data: users, loading: usersLoading } = useCollection<User>(collection(db, 'users'));
+
+    const userMap = useMemo(() => {
+        if (!users) return new Map<string, string>();
+        return new Map(users.map(u => [u.uid, u.name]));
+    }, [users]);
+    
+    const filteredRecords = useMemo(() => {
+        if (!attendanceRecords) return [];
+        return attendanceRecords
+            .map(record => ({
+                ...record,
+                studentName: userMap.get(record.studentId) || 'Unknown Student',
+            }))
+            .filter(record => {
+                const studentName = record.studentName.toLowerCase();
+                const subject = record.subject.toLowerCase();
+                const term = searchTerm.toLowerCase();
+
+                const matchesSearch = studentName.includes(term) || subject.includes(term);
+                const matchesStatus = filterStatus === 'All' || record.status === filterStatus;
+                
+                return matchesSearch && matchesStatus;
+            });
+    }, [attendanceRecords, userMap, searchTerm, filterStatus]);
+
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Attendance Records</CardTitle>
+                <CardDescription>View all attendance records for every student and class.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="flex items-center gap-4 mb-4">
+                    <Input 
+                        placeholder="Search by student or subject..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="max-w-sm"
+                    />
+                    <Select value={filterStatus} onValueChange={setFilterStatus}>
+                        <SelectTrigger className='w-[180px]'>
+                            <SelectValue placeholder="Filter by status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="All">All Statuses</SelectItem>
+                            <SelectItem value="Present">Present</SelectItem>
+                            <SelectItem value="Absent">Absent</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Student</TableHead>
+                            <TableHead>Subject</TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead className="text-right">Status</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {(attendanceLoading || usersLoading) && (
+                            <TableRow><TableCell colSpan={4} className="text-center">Loading records...</TableCell></TableRow>
+                        )}
+                        {filteredRecords && filteredRecords.map((record) => (
+                            <TableRow key={record.id}>
+                                <TableCell className="font-medium">{record.studentName}</TableCell>
+                                <TableCell>{record.subject}</TableCell>
+                                <TableCell>{new Date(record.date).toLocaleDateString()}</TableCell>
+                                <TableCell className="text-right">
+                                    <Badge variant={record.status === 'Present' ? 'default' : 'destructive'} className={record.status === 'Present' ? 'bg-green-500' : ''}>
+                                        {record.status}
+                                    </Badge>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                        {!attendanceLoading && !usersLoading && filteredRecords?.length === 0 && (
+                             <TableRow>
+                                <TableCell colSpan={4} className="text-center text-muted-foreground">No records match your filters.</TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
+    )
+}
+
 export default function AttendancePage() {
     const { user } = useAuth();
     
@@ -432,7 +543,7 @@ export default function AttendancePage() {
         <div className="space-y-6">
             {user?.role === 'Teacher' && <TeacherAttendance />}
             {user?.role === 'Student' && <StudentAttendance />}
-            {user?.role === 'Admin' && <p>Admin attendance overview will be displayed here.</p>}
+            {user?.role === 'Admin' && <AdminAttendance />}
         </div>
     );
 }
