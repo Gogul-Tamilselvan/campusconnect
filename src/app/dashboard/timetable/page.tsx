@@ -1,3 +1,4 @@
+
 'use client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -11,8 +12,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase } from '@/firebase';
-import { getFirestore, collection, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, serverTimestamp, query, orderBy, where } from 'firebase/firestore';
 import { useCollection } from '@/firebase/firestore/use-collection';
+import { User } from '@/lib/types';
 
 type TimetableEntry = {
     id: string;
@@ -38,6 +40,9 @@ const CreateTimetableForm = () => {
     
     const subjectsQuery = query(collection(db, 'subjects'), orderBy('name', 'asc'));
     const {data: subjects, loading: subjectsLoading } = useCollection<{id:string, name:string}>(subjectsQuery);
+
+    const teachersQuery = query(collection(db, 'users'), where('role', '==', 'Teacher'), orderBy('name', 'asc'));
+    const { data: teachers, loading: teachersLoading } = useCollection<User>(teachersQuery);
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -128,7 +133,14 @@ const CreateTimetableForm = () => {
                         </div>
                          <div className='space-y-2'>
                             <Label htmlFor="teacher">Teacher</Label>
-                            <Input id="teacher" name="teacher" placeholder="e.g., Dr. Alan" />
+                            <Select name="teacher">
+                                <SelectTrigger><SelectValue placeholder="Select Teacher" /></SelectTrigger>
+                                <SelectContent>
+                                     {teachersLoading ? <SelectItem value="loading" disabled>Loading...</SelectItem> :
+                                        teachers?.map(t => <SelectItem key={t.uid} value={t.name}>{t.name}</SelectItem>)
+                                     }
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
                     <DialogFooter>
@@ -155,6 +167,11 @@ export default function TimetablePage() {
                 (item) => item.department === user.department && item.semester === user.semester
             );
         }
+        if (user.role === 'Teacher') {
+            return timetableData.filter(
+                (item) => item.teacher === user.name
+            );
+        }
         return timetableData;
     }, [user, timetableData]);
 
@@ -172,7 +189,7 @@ export default function TimetablePage() {
                 <CardHeader>
                     <CardTitle>Weekly Timetable</CardTitle>
                     <CardDescription>
-                        { user?.role === 'Student' ? `Showing schedule for ${department}, ${semester}.` : 'Showing all schedules.'}
+                        { user?.role === 'Student' ? `Showing schedule for ${department}, ${semester}.` : user?.role === 'Teacher' ? 'Showing your schedule.' : 'Showing all schedules.'}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -214,3 +231,5 @@ export default function TimetablePage() {
         </div>
     );
 }
+
+    
