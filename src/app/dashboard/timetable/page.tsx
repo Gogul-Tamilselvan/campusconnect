@@ -42,11 +42,6 @@ const CreateTimetableForm = () => {
     const subjectsQuery = query(collection(db, 'subjects'), orderBy('name', 'asc'));
     const {data: subjects, loading: subjectsLoading } = useCollection<{id:string, name:string}>(subjectsQuery);
 
-    const usersQuery = query(collection(db, 'users'), orderBy('name', 'asc'));
-    const { data: users, loading: usersLoading } = useCollection<User>(usersQuery);
-    const teachers = useMemo(() => users?.filter(u => u.role === 'Teacher') || [], [users]);
-
-
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
@@ -136,14 +131,7 @@ const CreateTimetableForm = () => {
                         </div>
                          <div className='space-y-2'>
                             <Label htmlFor="teacher">Teacher</Label>
-                            <Select name="teacher">
-                                <SelectTrigger><SelectValue placeholder="Select Teacher" /></SelectTrigger>
-                                <SelectContent>
-                                     {usersLoading ? <SelectItem value="loading" disabled>Loading...</SelectItem> :
-                                        teachers.map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)
-                                     }
-                                </SelectContent>
-                            </Select>
+                            <Input id="teacher" name="teacher" placeholder="e.g., Dr. Smith" />
                         </div>
                     </div>
                     <DialogFooter>
