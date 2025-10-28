@@ -42,7 +42,8 @@ const CreateTimetableForm = () => {
     const subjectsQuery = query(collection(db, 'subjects'), orderBy('name', 'asc'));
     const {data: subjects, loading: subjectsLoading } = useCollection<{id:string, name:string}>(subjectsQuery);
 
-    const { data: users, loading: usersLoading } = useCollection<User>(collection(db, 'users'));
+    const usersQuery = query(collection(db, 'users'), orderBy('name', 'asc'));
+    const { data: users, loading: usersLoading } = useCollection<User>(usersQuery);
     const teachers = useMemo(() => users?.filter(u => u.role === 'Teacher') || [], [users]);
 
 
