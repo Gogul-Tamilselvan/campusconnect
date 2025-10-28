@@ -37,6 +37,7 @@ export const useCollection = <T extends DocumentData>(
 
   useEffect(() => {
     if (!query) {
+      setData([]);
       setLoading(false);
       return;
     }

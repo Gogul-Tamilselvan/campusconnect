@@ -140,7 +140,7 @@ const CreateTimetableForm = () => {
                                 <SelectTrigger><SelectValue placeholder="Select Teacher" /></SelectTrigger>
                                 <SelectContent>
                                      {usersLoading ? <SelectItem value="loading" disabled>Loading...</SelectItem> :
-                                        teachers?.map(t => <SelectItem key={t.uid} value={t.name}>{t.name}</SelectItem>)
+                                        teachers.map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)
                                      }
                                 </SelectContent>
                             </Select>
