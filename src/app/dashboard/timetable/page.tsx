@@ -1,5 +1,3 @@
-
-
 'use client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -27,20 +25,20 @@ type TimetableEntry = {
     semester: string;
 };
 
-const CreateTimetableForm = () => {
+const CreateTimetableForm = ({ onUpdate }: { onUpdate: () => void }) => {
     const [open, setOpen] = useState(false);
     const { toast } = useToast();
     const { app } = useFirebase();
     const db = getFirestore(app);
 
     const departmentsQuery = query(collection(db, 'departments'), orderBy('name', 'asc'));
-    const {data: departments, loading: departmentsLoading } = useCollection<{id:string, name:string}>(departmentsQuery);
+    const {data: departments, loading: departmentsLoading } = useCollection<{id:string, name:string}>(departmentsQuery, { listen: false });
 
     const semestersQuery = query(collection(db, 'semesters'), orderBy('name', 'asc'));
-    const {data: semesters, loading: semestersLoading } = useCollection<{id:string, name:string}>(semestersQuery);
+    const {data: semesters, loading: semestersLoading } = useCollection<{id:string, name:string}>(semestersQuery, { listen: false });
     
     const subjectsQuery = query(collection(db, 'subjects'), orderBy('name', 'asc'));
-    const {data: subjects, loading: subjectsLoading } = useCollection<{id:string, name:string}>(subjectsQuery);
+    const {data: subjects, loading: subjectsLoading } = useCollection<{id:string, name:string}>(subjectsQuery, { listen: false });
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -59,6 +57,7 @@ const CreateTimetableForm = () => {
             });
             toast({ title: 'Success', description: 'Timetable entry added.' });
             setOpen(false);
+            onUpdate();
         } catch (error) {
             toast({ title: 'Error', description: 'Failed to add timetable entry.', variant: 'destructive' });
         }
@@ -149,7 +148,7 @@ export default function TimetablePage() {
     const { app } = useFirebase();
     const db = getFirestore(app);
     const timetableQuery = query(collection(db, 'timetables'), orderBy('createdAt', 'desc'));
-    const {data: timetableData, loading} = useCollection<TimetableEntry>(timetableQuery);
+    const {data: timetableData, loading, refetch} = useCollection<TimetableEntry>(timetableQuery, { listen: false });
     
     const filteredTimetable = useMemo(() => {
         if (!user || !timetableData) return [];
@@ -173,7 +172,7 @@ export default function TimetablePage() {
         <div className="space-y-6">
             {isAdmin && (
                 <div className="flex justify-end">
-                    <CreateTimetableForm />
+                    <CreateTimetableForm onUpdate={refetch} />
                 </div>
             )}
             <Card>

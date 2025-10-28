@@ -45,7 +45,7 @@ export default function EventsPage() {
   const { user } = useAuth();
 
   const eventsQuery = query(collection(db, 'events'), orderBy('createdAt', 'desc'));
-  const { data: events, loading } = useCollection<Event>(eventsQuery);
+  const { data: events, loading, refetch } = useCollection<Event>(eventsQuery, { listen: false });
   
   const [eventName, setEventName] = useState('');
   const [eventDate, setEventDate] = useState('');
@@ -99,6 +99,7 @@ export default function EventsPage() {
       setSuggestedDescription('');
       setSuggestedCategory('');
       formRef.current?.reset();
+      refetch();
 
     } catch (error) {
        toast({

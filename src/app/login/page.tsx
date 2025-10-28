@@ -75,10 +75,10 @@ const SignupForm = ({ onSignupSuccess }: { onSignupSuccess: () => void }) => {
     const db = getFirestore(app);
 
     const departmentsQuery = query(collection(db, 'departments'), orderBy('name', 'asc'));
-    const { data: departments, loading: departmentsLoading } = useCollection<{id:string, name:string}>(departmentsQuery);
+    const { data: departments, loading: departmentsLoading } = useCollection<{id:string, name:string}>(departmentsQuery, { listen: false });
 
     const semestersQuery = query(collection(db, 'semesters'), orderBy('name', 'asc'));
-    const { data: semesters, loading: semestersLoading } = useCollection<{id:string, name:string}>(semestersQuery);
+    const { data: semesters, loading: semestersLoading } = useCollection<{id:string, name:string}>(semestersQuery, { listen: false });
 
 
     const handleSignup = async () => {

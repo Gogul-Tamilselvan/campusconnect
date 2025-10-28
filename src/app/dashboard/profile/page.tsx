@@ -24,10 +24,10 @@ export default function ProfilePage() {
     const [isSaving, setIsSaving] = useState(false);
 
     const departmentsQuery = query(collection(db, 'departments'), orderBy('name', 'asc'));
-    const { data: departments, loading: departmentsLoading } = useCollection<{id:string, name:string}>(departmentsQuery);
+    const { data: departments, loading: departmentsLoading } = useCollection<{id:string, name:string}>(departmentsQuery, { listen: false });
 
     const semestersQuery = query(collection(db, 'semesters'), orderBy('name', 'asc'));
-    const { data: semesters, loading: semestersLoading } = useCollection<{id:string, name:string}>(semestersQuery);
+    const { data: semesters, loading: semestersLoading } = useCollection<{id:string, name:string}>(semestersQuery, { listen: false });
     
     useEffect(() => {
         if(user) {

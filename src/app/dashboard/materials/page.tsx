@@ -22,7 +22,7 @@ type StudyMaterial = {
   createdAt: any;
 };
 
-const UploadMaterialForm = () => {
+const UploadMaterialForm = ({ onUploadSuccess }: { onUploadSuccess: () => void }) => {
     const [file, setFile] = useState<File | null>(null);
     const [subject, setSubject] = useState('');
     const inputRef = useRef<HTMLInputElement>(null);
@@ -33,7 +33,7 @@ const UploadMaterialForm = () => {
     const db = getFirestore(app);
 
     const subjectsQuery = query(collection(db, 'subjects'), orderBy('name', 'asc'));
-    const {data: subjects, loading: subjectsLoading } = useCollection<{id:string, name:string}>(subjectsQuery);
+    const {data: subjects, loading: subjectsLoading } = useCollection<{id:string, name:string}>(subjectsQuery, { listen: false });
 
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -72,6 +72,7 @@ const UploadMaterialForm = () => {
                 setFile(null);
                 setSubject('');
                 toast({ title: 'Success', description: 'Material uploaded.' });
+                onUploadSuccess();
 
             } catch(e) {
                  toast({ title: 'Upload Failed', description: 'Could not upload the material.', variant: 'destructive' });
@@ -135,7 +136,7 @@ export default function MaterialsPage() {
     const db = getFirestore(app);
 
     const materialsQuery = query(collection(db, 'materials'), orderBy('createdAt', 'desc'));
-    const { data: materials, loading } = useCollection<StudyMaterial>(materialsQuery);
+    const { data: materials, loading, refetch } = useCollection<StudyMaterial>(materialsQuery, { listen: false });
 
     const materialsBySubject = materials?.reduce((acc, material) => {
         const { subject } = material;
@@ -149,7 +150,7 @@ export default function MaterialsPage() {
 
     return (
         <div className="space-y-6">
-            {canUpload && <UploadMaterialForm />}
+            {canUpload && <UploadMaterialForm onUploadSuccess={refetch} />}
 
             <Card>
                 <CardHeader>

@@ -28,10 +28,10 @@ const EditUserDialog = ({ user, open, onOpenChange, onUserUpdate }: { user: User
     const [isSaving, setIsSaving] = useState(false);
 
     const departmentsQuery = query(collection(db, 'departments'), orderBy('name', 'asc'));
-    const { data: departments, loading: departmentsLoading } = useCollection<{id:string, name:string}>(departmentsQuery);
+    const { data: departments, loading: departmentsLoading } = useCollection<{id:string, name:string}>(departmentsQuery, { listen: false });
 
     const semestersQuery = query(collection(db, 'semesters'), orderBy('name', 'asc'));
-    const { data: semesters, loading: semestersLoading } = useCollection<{id:string, name:string}>(semestersQuery);
+    const { data: semesters, loading: semestersLoading } = useCollection<{id:string, name:string}>(semestersQuery, { listen: false });
     
     useEffect(() => {
         if (user) {
@@ -149,7 +149,7 @@ export default function ManageUsersPage() {
     const { app } = useFirebase();
     const db = getFirestore(app);
     const usersQuery = query(collection(db, 'users'), orderBy('name', 'asc'));
-    const { data: users, loading, refetch: refetchUsers } = useCollection<User>(usersQuery);
+    const { data: users, loading, refetch: refetchUsers } = useCollection<User>(usersQuery, { listen: false });
 
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);

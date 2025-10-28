@@ -24,7 +24,7 @@ type SubjectItem = AcademicItem & {
     semester: string;
 }
 
-const AddDepartmentForm = ({ collectionName, itemName }: { collectionName: string, itemName: string }) => {
+const AddDepartmentForm = ({ collectionName, itemName, onUpdate }: { collectionName: string, itemName: string, onUpdate: () => void }) => {
     const [open, setOpen] = useState(false);
     const [name, setName] = useState('');
     const { toast } = useToast();
@@ -41,6 +41,7 @@ const AddDepartmentForm = ({ collectionName, itemName }: { collectionName: strin
                 toast({ title: "Success", description: `${itemName} added.` });
                 setName('');
                 setOpen(false);
+                onUpdate();
             } catch (error) {
                  toast({ title: "Error", description: `Could not add ${itemName}.`, variant: "destructive" });
             }
@@ -77,7 +78,7 @@ const AddDepartmentForm = ({ collectionName, itemName }: { collectionName: strin
     );
 };
 
-const AddSubjectForm = () => {
+const AddSubjectForm = ({ onUpdate }: { onUpdate: () => void }) => {
     const [open, setOpen] = useState(false);
     const [name, setName] = useState('');
     const [department, setDepartment] = useState('');
@@ -87,10 +88,10 @@ const AddSubjectForm = () => {
     const db = getFirestore(app);
 
     const departmentsQuery = query(collection(db, 'departments'), orderBy('name', 'asc'));
-    const {data: departments, loading: departmentsLoading } = useCollection<{id:string, name:string}>(departmentsQuery);
+    const {data: departments, loading: departmentsLoading } = useCollection<{id:string, name:string}>(departmentsQuery, { listen: false });
 
     const semestersQuery = query(collection(db, 'semesters'), orderBy('name', 'asc'));
-    const {data: semesters, loading: semestersLoading } = useCollection<{id:string, name:string}>(semestersQuery);
+    const {data: semesters, loading: semestersLoading } = useCollection<{id:string, name:string}>(semestersQuery, { listen: false });
 
     const handleSubmit = async () => {
         if (name && department && semester) {
@@ -106,6 +107,7 @@ const AddSubjectForm = () => {
                 setDepartment('');
                 setSemester('');
                 setOpen(false);
+                onUpdate();
             } catch (error) {
                  toast({ title: "Error", description: `Could not add subject.`, variant: "destructive" });
             }
@@ -169,12 +171,13 @@ const ItemList = ({ collectionName, itemName }: { collectionName: string, itemNa
     const { toast } = useToast();
     
     const itemsQuery = query(collection(db, collectionName), orderBy('name', 'asc'));
-    const { data: items, loading } = useCollection<AcademicItem>(itemsQuery);
+    const { data: items, loading, refetch } = useCollection<AcademicItem>(itemsQuery, { listen: false });
 
     const handleDelete = async (id: string) => {
         try {
             await deleteDoc(doc(db, collectionName, id));
             toast({ title: 'Success', description: `${itemName} deleted.` });
+            refetch();
         } catch (error) {
             toast({ title: 'Error', description: `Could not delete ${itemName}.`, variant: 'destructive' });
         }
@@ -185,7 +188,7 @@ const ItemList = ({ collectionName, itemName }: { collectionName: string, itemNa
             <CardHeader>
                 <div className="flex justify-between items-center">
                     <CardTitle>Manage {itemName}s</CardTitle>
-                    <AddDepartmentForm collectionName={collectionName} itemName={itemName} />
+                    <AddDepartmentForm collectionName={collectionName} itemName={itemName} onUpdate={refetch} />
                 </div>
             </CardHeader>
             <CardContent>
@@ -212,12 +215,13 @@ const SubjectList = () => {
     const { toast } = useToast();
     
     const itemsQuery = query(collection(db, 'subjects'), orderBy('name', 'asc'));
-    const { data: items, loading } = useCollection<SubjectItem>(itemsQuery);
+    const { data: items, loading, refetch } = useCollection<SubjectItem>(itemsQuery, { listen: false });
 
     const handleDelete = async (id: string) => {
         try {
             await deleteDoc(doc(db, 'subjects', id));
             toast({ title: 'Success', description: `Subject deleted.` });
+            refetch();
         } catch (error) {
             toast({ title: 'Error', description: `Could not delete subject.`, variant: 'destructive' });
         }
@@ -228,7 +232,7 @@ const SubjectList = () => {
             <CardHeader>
                 <div className="flex justify-between items-center">
                     <CardTitle>Manage Subjects</CardTitle>
-                    <AddSubjectForm />
+                    <AddSubjectForm onUpdate={refetch} />
                 </div>
             </CardHeader>
             <CardContent>

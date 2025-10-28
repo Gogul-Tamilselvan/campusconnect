@@ -65,7 +65,7 @@ const TeacherAttendance = () => {
 
 
     const subjectsQuery = query(collection(db, 'subjects'), orderBy('name', 'asc'));
-    const { data: subjects, loading: subjectsLoading } = useCollection<Subject>(subjectsQuery);
+    const { data: subjects, loading: subjectsLoading } = useCollection<Subject>(subjectsQuery, { listen: false });
 
     const selectedSubject = useMemo(() => {
         return subjects?.find(s => s.id === selectedSubjectId);
@@ -359,7 +359,7 @@ const StudentAttendance = () => {
     const db = getFirestore(app);
     
     const attendanceQuery = user ? query(collection(db, 'attendance'), where('studentId', '==', user.uid)) : null;
-    const { data: attendanceRecords, loading } = useCollection<AttendanceRecord>(attendanceQuery);
+    const { data: attendanceRecords, loading } = useCollection<AttendanceRecord>(attendanceQuery, { listen: true });
     
     const sortedRecords = useMemo(() => {
         if (!attendanceRecords) return [];
@@ -438,8 +438,8 @@ const AdminAttendance = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('All');
 
-    const { data: attendanceRecords, loading: attendanceLoading } = useCollection<AttendanceRecord>(query(collection(db, 'attendance'), orderBy('createdAt', 'desc')));
-    const { data: users, loading: usersLoading } = useCollection<User>(collection(db, 'users'));
+    const { data: attendanceRecords, loading: attendanceLoading } = useCollection<AttendanceRecord>(query(collection(db, 'attendance'), orderBy('createdAt', 'desc')), { listen: false });
+    const { data: users, loading: usersLoading } = useCollection<User>(collection(db, 'users'), { listen: false });
 
     const userMap = useMemo(() => {
         if (!users) return new Map<string, string>();

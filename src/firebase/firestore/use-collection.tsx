@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { onSnapshot, Query, DocumentData, QuerySnapshot, getDocs } from 'firebase/firestore';
+import { onSnapshot, Query, DocumentData, QuerySnapshot, getDocs, getDocsFromCache } from 'firebase/firestore';
+import { clearCache, getCache, setCache, getQueryKey } from '@/lib/cache';
 
 interface UseCollectionOptions {
   listen?: boolean;
@@ -13,12 +14,24 @@ export const useCollection = <T extends DocumentData>(
   const [data, setData] = useState<T[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const queryKey = query ? getQueryKey(query) : null;
 
-  const fetchData = useCallback(async () => {
-    if (!query) {
+  const fetchData = useCallback(async (force = false) => {
+    if (!query || !queryKey) {
+      setData([]);
       setLoading(false);
       return;
     }
+
+    if (!force) {
+        const cachedData = getCache<T[]>(queryKey);
+        if (cachedData) {
+            setData(cachedData);
+            setLoading(false);
+            return;
+        }
+    }
+
     setLoading(true);
     try {
       const snapshot = await getDocs(query);
@@ -27,13 +40,14 @@ export const useCollection = <T extends DocumentData>(
         ...doc.data(),
       } as T));
       setData(result);
+      setCache(queryKey, result);
     } catch (err) {
       setError(err as Error);
-      console.error(err);
+      console.error(`Error fetching collection ${queryKey}:`, err);
     } finally {
       setLoading(false);
     }
-  }, [query]);
+  }, [query, queryKey]);
 
   useEffect(() => {
     if (!query) {
@@ -50,6 +64,7 @@ export const useCollection = <T extends DocumentData>(
         } as T));
         setData(result);
         setLoading(false);
+        setError(null);
       };
 
       const handleError = (err: Error) => {
@@ -66,13 +81,12 @@ export const useCollection = <T extends DocumentData>(
     }
   }, [query, options.listen, fetchData]);
 
-  const refetch = () => {
-     if (!options.listen) {
-       fetchData();
+  const refetch = useCallback(() => {
+     if (queryKey) {
+        clearCache(queryKey);
+        fetchData(true);
      }
-     // For listeners, data is refetched automatically.
-     // We can add a manual getDocs for listeners too if a forced instant refetch is needed.
-  }
+  }, [queryKey, fetchData])
 
   return { data, loading, error, refetch };
 };

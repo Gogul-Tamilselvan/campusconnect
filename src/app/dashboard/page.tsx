@@ -12,9 +12,9 @@ const AdminDashboard = () => {
     const { app } = useFirebase();
     const db = getFirestore(app);
     
-    const { data: users, loading: usersLoading } = useCollection<User>(collection(db, 'users'));
-    const { data: blogPosts, loading: blogPostsLoading } = useCollection(collection(db, 'blogPosts'));
-    const { data: events, loading: eventsLoading } = useCollection(collection(db, 'events'));
+    const { data: users, loading: usersLoading } = useCollection<User>(collection(db, 'users'), { listen: false });
+    const { data: blogPosts, loading: blogPostsLoading } = useCollection(collection(db, 'blogPosts'), { listen: false });
+    const { data: events, loading: eventsLoading } = useCollection(collection(db, 'events'), { listen: false });
 
     const totalStudents = users?.filter(u => u.role === 'Student').length || 0;
     const totalTeachers = users?.filter(u => u.role === 'Teacher').length || 0;
@@ -79,9 +79,9 @@ const TeacherDashboard = () => {
     const currentDay = days[today.getDay()];
 
     const timetableQuery = user ? query(collection(db, 'timetables'), where('teacher', '==', user.name), where('day', '==', currentDay)) : null;
-    const { data: upcomingClasses, loading: classesLoading } = useCollection(timetableQuery);
-    const { data: announcements, loading: announcementsLoading } = useCollection(collection(db, 'announcements'));
-    const { data: materials, loading: materialsLoading } = useCollection(collection(db, 'materials'));
+    const { data: upcomingClasses, loading: classesLoading } = useCollection(timetableQuery, { listen: false });
+    const { data: announcements, loading: announcementsLoading } = useCollection(collection(db, 'announcements'), { listen: false });
+    const { data: materials, loading: materialsLoading } = useCollection(collection(db, 'materials'), { listen: false });
 
     const loading = classesLoading || announcementsLoading || materialsLoading;
 
@@ -127,10 +127,10 @@ const StudentDashboard = () => {
     const db = getFirestore(app);
 
     const attendanceQuery = user ? query(collection(db, 'attendance'), where('studentId', '==', user.uid)) : null;
-    const { data: attendanceRecords, loading: attendanceLoading } = useCollection(attendanceQuery);
+    const { data: attendanceRecords, loading: attendanceLoading } = useCollection(attendanceQuery, { listen: false });
     
-    const { data: events, loading: eventsLoading } = useCollection(collection(db, 'events'));
-    const { data: announcements, loading: announcementsLoading } = useCollection(collection(db, 'announcements'));
+    const { data: events, loading: eventsLoading } = useCollection(collection(db, 'events'), { listen: false });
+    const { data: announcements, loading: announcementsLoading } = useCollection(collection(db, 'announcements'), { listen: false });
     
     const overallAttendance = () => {
         if (!attendanceRecords || attendanceRecords.length === 0) return 0;
@@ -202,5 +202,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    

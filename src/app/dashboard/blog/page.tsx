@@ -29,7 +29,7 @@ type BlogPost = {
   createdAt: any;
 };
 
-const NewPostForm = () => {
+const NewPostForm = ({ onPostCreated }: { onPostCreated: () => void }) => {
     const { user } = useAuth();
     const [open, setOpen] = useState(false);
     const { toast } = useToast();
@@ -57,6 +57,7 @@ const NewPostForm = () => {
                 });
                 toast({ title: "Success", description: "Blog post submitted for approval." });
                 setOpen(false);
+                onPostCreated();
             } catch (e) {
                  toast({ title: "Error", description: "Could not submit post.", variant: "destructive" });
             }
@@ -106,7 +107,7 @@ const AdminBlogApproval = () => {
     const db = getFirestore(app);
     const { toast } = useToast();
     const allPostsQuery = query(collection(db, 'blogPosts'), orderBy('createdAt', 'desc'));
-    const { data: allPosts, loading } = useCollection<BlogPost>(allPostsQuery);
+    const { data: allPosts, loading, refetch } = useCollection<BlogPost>(allPostsQuery, { listen: false });
 
     const pendingPosts = allPosts?.filter(post => post.status === 'Pending');
 
@@ -115,6 +116,7 @@ const AdminBlogApproval = () => {
         try {
             await updateDoc(postRef, { status: 'Published' });
             toast({ title: "Post Approved", description: "The blog post is now live." });
+            refetch();
         } catch (error) {
             toast({ title: "Error", description: "Could not approve the post.", variant: 'destructive' });
         }
@@ -125,6 +127,7 @@ const AdminBlogApproval = () => {
         try {
             await deleteDoc(postRef);
             toast({ title: "Post Rejected", description: "The blog post has been deleted." });
+            refetch();
         } catch (error) {
             toast({ title: "Error", description: "Could not reject the post.", variant: 'destructive' });
         }
@@ -174,7 +177,7 @@ export default function BlogPage() {
     const db = getFirestore(app);
 
     const allPostsQuery = query(collection(db, 'blogPosts'), orderBy('createdAt', 'desc'));
-    const { data: allPosts, loading } = useCollection<BlogPost>(allPostsQuery);
+    const { data: allPosts, loading, refetch } = useCollection<BlogPost>(allPostsQuery, { listen: false });
     
     const publishedPosts = allPosts?.filter(post => post.status === 'Published');
 
@@ -191,7 +194,7 @@ export default function BlogPage() {
                     {user?.role === 'Admin' && <TabsTrigger value="approval">Approval Queue</TabsTrigger>}
                 </TabsList>
                 <div className="ml-auto">
-                    <NewPostForm />
+                    <NewPostForm onPostCreated={refetch} />
                 </div>
             </div>
 

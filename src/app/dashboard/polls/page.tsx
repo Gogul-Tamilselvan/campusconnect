@@ -28,9 +28,10 @@ type Poll = {
   author: string;
   date: any;
   votedBy: string[];
+  createdAt: any;
 };
 
-const CreatePollForm = () => {
+const CreatePollForm = ({ onPollCreated }: { onPollCreated: () => void }) => {
     const { user } = useAuth();
     const [open, setOpen] = useState(false);
     const [question, setQuestion] = useState('');
@@ -72,6 +73,7 @@ const CreatePollForm = () => {
                 setOpen(false);
                 setQuestion('');
                 setOptions(['', '']);
+                onPollCreated();
             } catch (e) {
                 toast({ title: 'Error', description: 'Could not create poll.', variant: 'destructive' });
             }
@@ -146,7 +148,7 @@ const PollResults = ({ poll }: { poll: Poll }) => {
 };
 
 
-const PollCard = ({ poll }: { poll: Poll }) => {
+const PollCard = ({ poll, onVote }: { poll: Poll, onVote: () => void }) => {
     const { user } = useAuth();
     const { app } = useFirebase();
     const db = getFirestore(app);
@@ -175,6 +177,7 @@ const PollCard = ({ poll }: { poll: Poll }) => {
                 });
 
                 toast({ title: 'Vote Cast!', description: "Your vote has been recorded." });
+                onVote();
 
             } catch (error) {
                 toast({ title: 'Error', description: 'Could not cast your vote.', variant: 'destructive' });
@@ -221,7 +224,7 @@ export default function PollsPage() {
     const { app } = useFirebase();
     const db = getFirestore(app);
     const pollsQuery = query(collection(db, 'polls'), orderBy('createdAt', 'desc'));
-    const { data: polls, loading } = useCollection<Poll>(pollsQuery);
+    const { data: polls, loading, refetch } = useCollection<Poll>(pollsQuery, { listen: false });
 
     const canCreate = user?.role === 'Teacher' || user?.role === 'Admin';
     
@@ -229,7 +232,7 @@ export default function PollsPage() {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-bold">Polls & Surveys</h1>
-                {canCreate && <CreatePollForm />}
+                {canCreate && <CreatePollForm onPollCreated={refetch}/>}
             </div>
 
             {loading && <p>Loading polls...</p>}
@@ -237,7 +240,7 @@ export default function PollsPage() {
             {polls && polls.length > 0 ? (
                 <div className="grid gap-6 md:grid-cols-2">
                     {polls.map(poll => (
-                       <PollCard key={poll.id} poll={poll} />
+                       <PollCard key={poll.id} poll={poll} onVote={refetch} />
                     ))}
                 </div>
             ) : (

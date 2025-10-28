@@ -20,6 +20,7 @@ type Announcement = {
     content: string;
     author: string;
     date: any; 
+    createdAt: any;
 };
 
 const PostAnnouncementForm = () => {
@@ -99,7 +100,7 @@ export default function AnnouncementsPage() {
     const db = getFirestore(app);
     
     const announcementsQuery = query(collection(db, 'announcements'), orderBy('createdAt', 'desc'));
-    const { data: announcements, loading } = useCollection<Announcement>(announcementsQuery);
+    const { data: announcements, loading } = useCollection<Announcement>(announcementsQuery, { listen: true });
     
     const canPost = user?.role === 'Admin' || user?.role === 'Teacher';
 
