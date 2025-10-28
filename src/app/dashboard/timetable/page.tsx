@@ -41,8 +41,9 @@ const CreateTimetableForm = () => {
     const subjectsQuery = query(collection(db, 'subjects'), orderBy('name', 'asc'));
     const {data: subjects, loading: subjectsLoading } = useCollection<{id:string, name:string}>(subjectsQuery);
 
-    const teachersQuery = query(collection(db, 'users'), where('role', '==', 'Teacher'), orderBy('name', 'asc'));
-    const { data: teachers, loading: teachersLoading } = useCollection<User>(teachersQuery);
+    const { data: users, loading: usersLoading } = useCollection<User>(collection(db, 'users'));
+    const teachers = useMemo(() => users?.filter(u => u.role === 'Teacher') || [], [users]);
+
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -136,7 +137,7 @@ const CreateTimetableForm = () => {
                             <Select name="teacher">
                                 <SelectTrigger><SelectValue placeholder="Select Teacher" /></SelectTrigger>
                                 <SelectContent>
-                                     {teachersLoading ? <SelectItem value="loading" disabled>Loading...</SelectItem> :
+                                     {usersLoading ? <SelectItem value="loading" disabled>Loading...</SelectItem> :
                                         teachers?.map(t => <SelectItem key={t.uid} value={t.name}>{t.name}</SelectItem>)
                                      }
                                 </SelectContent>
@@ -231,5 +232,3 @@ export default function TimetablePage() {
         </div>
     );
 }
-
-    
